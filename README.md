@@ -35,6 +35,9 @@ On a phone: open the Pages URL, **Add to Home Screen**. That is the PWA.
 
 - **Clock in / Clock out** — the big button. It is green when you are out,
   red when you are in. The line under it shows since when and today's total.
+  Forgot the whole day? The first press after **14:00** (device local time)
+  records a typical day — 09:00–12:00, 14:00–now — so that press is your
+  evening clock-out. Then fix the times in the history if they were off.
 - **Tiles** — today (with the break length), this week, average of the last
   four full weeks, all-time average per worked day. "Day" means a day with
   at least one closed session.

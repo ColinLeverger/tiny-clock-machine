@@ -40,4 +40,16 @@ assert.ok(!TCM.clockedIn(events, at(2026, 10, 2, 9, 0)), "yesterday's open in is
 assert.equal(TCM.fmt(59 * 60000 + 29000), "0h59");
 assert.equal(TCM.fmt(59 * 60000 + 31000), "1h00");
 
+// punch(): first press of the day after 14:00 records a typical day ending now.
+const late = at(2026, 10, 2, 16, 30);
+assert.deepEqual(TCM.punch([], late), [
+  { k: "in", t: at(2026, 10, 2, 9, 0) }, { k: "out", t: at(2026, 10, 2, 12, 0) },
+  { k: "in", t: at(2026, 10, 2, 14, 0) }, { k: "out", t: late },
+]);
+assert.deepEqual(TCM.punch([], at(2026, 10, 2, 13, 59)), [{ k: "in", t: at(2026, 10, 2, 13, 59) }], "before 14:00 -> plain in");
+assert.deepEqual(TCM.punch(events, now), [{ k: "out", t: now }], "clocked in -> plain out");
+assert.deepEqual(TCM.punch([{ k: "in", t: at(2026, 10, 2, 8, 0) }, { k: "out", t: at(2026, 10, 2, 12, 0) }], late),
+  [{ k: "in", t: late }], "already punched today -> plain in");
+assert.equal(TCM.fmt(TCM.days(TCM.punch([], late), late)[0].ms), "5h30");
+
 console.log("clock tests passed");

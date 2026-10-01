@@ -136,18 +136,20 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
   function render() {
     var now = Date.now(), today = TCM.dayKey(now);
     var days = TCM.days(events, now), weeks = TCM.weeks(days);
-    var inNow = TCM.clockedIn(events, now);
+    var inNow = TCM.clockedIn(events, now), next = TCM.punch(events, now), nextOut = next[next.length - 1].k === "out";
     var todayD = days[0] && days[0].key === today ? days[0] : null;
 
     // --- punch button + status line
     var b = $("punch");
-    b.textContent = inNow ? "Clock out" : "Clock in";
-    b.classList.toggle("out", inNow);
+    b.textContent = nextOut ? "Clock out" : "Clock in";
+    b.classList.toggle("out", nextOut);
     var st;
     if (inNow) {
       var open = todayD.sessions[todayD.sessions.length - 1];
       st = "Clocked in since " + TCM.hhmm(open.start) + " · today " + TCM.fmt(todayD.ms);
-    } else st = todayD ? "Clocked out · today " + TCM.fmt(todayD.ms) : "Not clocked in yet today";
+    } else if (todayD) st = "Clocked out · today " + TCM.fmt(todayD.ms);
+    else if (next.length > 1) st = "Nothing punched today · this button records a typical day: 09:00–12:00, 14:00–now";
+    else st = "Not clocked in yet today";
     var stale = days.filter(function (d) { return d.stale; })[0];
     if (stale) st += '<br><span class="warn">⚠ Missing clock-out on ' + esc(dateLabel(stale.start)) + ", fix it in the history</span>";
     $("status").innerHTML = st;
@@ -197,7 +199,7 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
 
   // --- actions
   $("punch").onclick = function () {
-    events.push({ k: TCM.clockedIn(events, Date.now()) ? "out" : "in", t: Date.now() });
+    events.push.apply(events, TCM.punch(events, Date.now()));
     save();
   };
   $("history").addEventListener("change", function (e) {

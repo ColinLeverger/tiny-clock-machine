@@ -84,7 +84,23 @@ var TCM = (function () {
     return !!last && last.k === "in" && dayKey(last.t) === dayKey(now);
   }
 
+  function atHour(t, h) { var d = new Date(t); d.setHours(h, 0, 0, 0); return d.getTime(); }
+
+  // What one press of the button records. Normally it toggles in/out. The
+  // first press of the day after 14:00 means the whole day went unpunched:
+  // record a typical day (09:00-12:00, 14:00-now) so that press is the
+  // evening clock-out, then fix the times in the history if they were off.
+  // ponytail: fixed hours; make them a setting if a second schedule shows up.
+  function punch(events, now) {
+    if (clockedIn(events, now)) return [{ k: "out", t: now }];
+    var today = dayKey(now);
+    var anyToday = events.some(function (e) { return dayKey(e.t) === today; });
+    if (!anyToday && now >= atHour(now, 14))
+      return [{ k: "in", t: atHour(now, 9) }, { k: "out", t: atHour(now, 12) }, { k: "in", t: atHour(now, 14) }, { k: "out", t: now }];
+    return [{ k: "in", t: now }];
+  }
+
   return { DAY: DAY, dayKey: dayKey, dayStart: dayStart, weekStart: weekStart, fmt: fmt, hhmm: hhmm,
-    sessions: sessions, days: days, weeks: weeks, clockedIn: clockedIn };
+    sessions: sessions, days: days, weeks: weeks, clockedIn: clockedIn, punch: punch };
 })();
 if (typeof module !== "undefined") module.exports = TCM;
