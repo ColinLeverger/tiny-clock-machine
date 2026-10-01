@@ -44,21 +44,50 @@ On a phone: open the Pages URL, **Add to Home Screen**. That is the PWA.
   chosen date for days you forgot entirely, then fix the times.
 - **Export / Import JSON** — the whole log as `[{ "k": "in"|"out", "t": ms }]`.
   Import merges and de-duplicates, it never wipes what is already there.
+- **☁ GitHub backup** — see below. The footer tells you how many punches the
+  browser holds, whether they are backed up, and when you last exported.
+
+## GitHub backup (free, no server)
+
+Browser storage is a strong default, not a guarantee: deleting the
+home-screen icon, replacing the phone, or clearing Safari data loses it. The
+backup pushes the log to one file in a **private** repository you own, using
+the GitHub Contents API, after every punch.
+
+1. Create a private repository (initialise it with a README so `main` exists).
+2. Create a [fine-grained personal access token](https://github.com/settings/personal-access-tokens/new)
+   restricted to that repository with **Contents: read and write**, nothing else.
+3. In the app, open *☁ GitHub backup*, enter `owner/repository` and the
+   token, **Connect**. If the repo already has a `tiny-clock.json` the two
+   copies are merged.
+
+From then on each punch is pushed two seconds later (or when the app goes to
+the background) as a commit to `tiny-clock.json`. A fresh browser with the
+same repo and token **loads the file back on start**. The file sha is sent
+with every push, so if another device wrote in between the push is refused
+and the status says so: **⬆ Push** overwrites GitHub with this device,
+**⬇ Pull** replaces this device with GitHub.
+
+The token lives in this browser's localStorage, next to the punches. It can
+only touch that one repository. Revoke it on GitHub if the phone goes
+missing.
 
 ## Privacy
 
-Punches live in `localStorage` of the browser you use, nothing leaves the
-device, nothing is committed here (`.gitignore` covers the export filename).
-A browser that clears site data clears your timesheet: **export now and
-then**. Safari evicts storage of web pages not used for a week, an installed
-home-screen app is exempt.
+Punches live in `localStorage` of the browser you use. Nothing leaves the
+device unless you connect the GitHub backup, and then only to your own
+private repository. Nothing is committed here (`.gitignore` covers the
+export filename). Safari evicts storage of web pages not used for a week;
+an installed home-screen app is exempt from that rule, but not from a
+deleted icon or a lost phone. Connect the backup, or export now and then.
 
 ## Layout
 
 ```
 index.html            page, styles and app code (one file)
 js/clock.js           pure maths: events -> sessions -> days -> weeks
-tests/clock.test.js   node tests/clock.test.js
+js/sync.js            GitHub Contents API backup (push after change, pull when empty)
+tests/                node tests/clock.test.js && node tests/sync.test.js
 sw.js                 offline cache, stamped with the commit SHA on deploy
 manifest.webmanifest  PWA install
 icons/                app icons

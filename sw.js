@@ -2,7 +2,7 @@
  * The deploy workflow stamps VERSION with the commit SHA; old caches are
  * swept on activate and the page reloads once when a new worker takes over. */
 var VERSION = "tcm-dev";
-var SHELL = ["./", "index.html", "js/clock.js", "manifest.webmanifest",
+var SHELL = ["./", "index.html", "js/clock.js", "js/sync.js", "manifest.webmanifest",
   "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png"];
 
 self.addEventListener("install", function (e) {
@@ -23,7 +23,7 @@ self.addEventListener("activate", function (e) {
 });
 
 self.addEventListener("fetch", function (e) {
-  if (e.request.method !== "GET") return;
+  if (e.request.method !== "GET" || new URL(e.request.url).hostname === "api.github.com") return;
   e.respondWith(caches.match(e.request).then(function (hit) {
     var net = fetch(e.request).then(function (res) {
       if (res && res.ok) {

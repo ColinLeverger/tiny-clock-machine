@@ -27,7 +27,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: node tests/clock.test.js
+      - run: node tests/clock.test.js && node tests/sync.test.js
       # Stamp the worker with the commit SHA so every deploy is a new cache.
       - name: Stamp release version
         run: sed -i "s/^var VERSION = .*/var VERSION = \"tcm-${{ github.sha }}\";/" sw.js

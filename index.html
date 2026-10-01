@@ -52,6 +52,11 @@ summary .s{font-weight:400;color:var(--muted)}
 .tools{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-top:1.4rem}
 .tools input[type=date]{border:1px solid var(--line2);border-radius:7px;padding:.35rem .5rem;background:#fff}
 h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:1.4rem 0 .5rem}
+.sync{margin-top:1rem}
+.sync .pad{border-top:1px solid var(--line);padding:.6rem .75rem;display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
+.sync input{border:1px solid var(--line2);border-radius:7px;padding:.35rem .5rem;background:#fff;flex:1;min-width:10em}
+.sync .s.ok{color:var(--ok)}.sync .s.error,.sync .s.conflict{color:var(--no)}.sync .s.dirty,.sync .s.syncing{color:var(--warn)}
+#foot{margin-top:1rem}
 </style>
 </head>
 <body>
@@ -71,10 +76,26 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
     <button class="btn" id="export">Export JSON</button>
     <label class="btn">Import JSON <input type="file" id="import" accept="application/json,.json" hidden></label>
   </div>
-  <p class="muted small">Everything stays in this browser (localStorage). Export now and then: a cleared browser is a lost timesheet.</p>
+  <details class="sync" id="syncBox">
+    <summary><span>☁ GitHub backup</span><span class="s" id="syncState">Not connected</span></summary>
+    <div class="pad" id="syncForm">
+      <input id="syncRepo" placeholder="owner/private-repo" autocapitalize="none" autocorrect="off">
+      <input id="syncToken" type="password" placeholder="github_pat_…" autocomplete="off">
+      <button class="btn" id="syncConnect">Connect</button>
+      <p class="muted small" style="flex-basis:100%;margin:0">A private repo and a fine-grained token with <i>Contents: read and write</i> on that repo only. The log is pushed to <code>tiny-clock.json</code> after every punch and loaded back when this browser is empty.</p>
+    </div>
+    <div class="pad" id="syncOn" hidden>
+      <span id="syncRepoName" class="muted"></span>
+      <button class="btn" id="syncPush" title="Overwrite the GitHub copy with this device">⬆ Push</button>
+      <button class="btn" id="syncPull" title="Replace this device with the GitHub copy">⬇ Pull</button>
+      <button class="btn" id="syncOff">Disconnect</button>
+    </div>
+  </details>
+  <p class="muted small" id="foot"></p>
 </main>
 
 <script src="js/clock.js"></script>
+<script src="js/sync.js"></script>
 <script>
 (function () {
   var KEY = "tcm-events";
@@ -82,7 +103,25 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
   try { events = JSON.parse(localStorage.getItem(KEY) || "[]"); } catch (_) {}
   if (!Array.isArray(events)) events = [];
 
-  function save() { localStorage.setItem(KEY, JSON.stringify(events)); render(); }
+  function persist() { localStorage.setItem(KEY, JSON.stringify(events)); render(); }
+  function save() { persist(); sync.changed(); }
+  var sync = TCMSync.create({
+    getEvents: function () { return events; },
+    setEvents: function (list) { events = list; persist(); },
+    onStatus: function (kind, text) {
+      var el = $("syncState"); el.textContent = text; el.className = "s " + kind;
+      var on = !!sync.config();
+      $("syncForm").hidden = on; $("syncOn").hidden = !on;
+      if (on) $("syncRepoName").textContent = sync.config().repo;
+      foot();
+    }
+  });
+  function foot() {
+    var ex = +localStorage.getItem("tcm-exported") || 0, cfg = sync.config();
+    $("foot").textContent = events.length + " punch" + (events.length === 1 ? "" : "es") + " in this browser · " +
+      (cfg ? "backed up to GitHub" + (cfg.dirty ? " (pending)" : "") : "no GitHub backup") +
+      " · last export " + (ex ? Math.round((Date.now() - ex) / TCM.DAY) + " d ago" : "never");
+  }
   function $(id) { return document.getElementById(id); }
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
   function dateLabel(t, opts) { return new Date(t).toLocaleDateString(undefined, opts || { weekday: "short", day: "numeric", month: "short" }); }
@@ -140,6 +179,7 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
         '</span><span class="s">' + TCM.fmt(w.ms) + " · " + n + "d · " + avg(w.ms, n) + "/d</span></summary>" +
         w.days.map(dayHtml).join("") + "</details>";
     }).join("") || '<p class="muted">Nothing yet. Press the button.</p>';
+    foot();
   }
   function tile(k, v, s) { return '<div class="tile"><div class="k">' + esc(k) + '</div><div class="v">' + esc(v) + '</div><div class="s">' + esc(s) + "</div></div>"; }
   function dayHtml(d) {
@@ -189,6 +229,7 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
     a.download = "tiny-clock-" + TCM.dayKey(Date.now()) + ".json";
     a.click();
     URL.revokeObjectURL(a.href);
+    localStorage.setItem("tcm-exported", Date.now()); foot();
   };
   $("import").onchange = function () {
     var f = this.files[0]; this.value = "";
@@ -205,6 +246,18 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
       save();
     }).catch(function (err) { alert("Import failed: " + err.message); });
   };
+
+  $("syncConnect").onclick = function () {
+    sync.connect($("syncRepo").value, $("syncToken").value).then(function () { $("syncToken").value = ""; })
+      .catch(function (err) { alert(err.message); });
+  };
+  $("syncPush").onclick = function () { sync.push(true); };
+  $("syncPull").onclick = function () {
+    if (!sync.config().dirty || confirm("This device has unsaved punches. Replace them with the GitHub copy?")) sync.pull();
+  };
+  $("syncOff").onclick = function () { if (confirm("Disconnect GitHub backup? The repo keeps its copy.")) sync.disconnect(); };
+  sync.start();
+  if (navigator.storage && navigator.storage.persist) navigator.storage.persist();
 
   // Re-render the running counter, unless the user is mid-edit.
   setInterval(function () { if (!document.activeElement || document.activeElement.tagName !== "INPUT") render(); }, 30000);
