@@ -1,0 +1,43 @@
+// node tests/clock.test.js — the pairing logic is the only thing that can
+// silently lie about hours worked, so it gets the one check.
+const assert = require("node:assert/strict");
+const TCM = require("../js/clock.js");
+
+const at = (y, mo, d, h, mi) => new Date(y, mo - 1, d, h, mi).getTime();
+const now = at(2026, 10, 1, 15, 0);           // Thu 1 Oct 2026, 15:00
+
+const events = [
+  { k: "in",  t: at(2026, 9, 29, 8, 30) },     // Tue: 8:30 -> 12:00, 12:45 -> 17:15 = 8h00, break 45m
+  { k: "out", t: at(2026, 9, 29, 12, 0) },
+  { k: "in",  t: at(2026, 9, 29, 12, 45) },
+  { k: "out", t: at(2026, 9, 29, 17, 15) },
+  { k: "in",  t: at(2026, 9, 30, 9, 0) },      // Wed: forgot to clock out -> stale, worth 0
+  { k: "out", t: at(2026, 10, 1, 7, 0) },      // Thu: orphan out (no matching in), worth 0
+  { k: "in",  t: at(2026, 10, 1, 13, 0) },     // Thu: open since 13:00, now 15:00 -> 2h00
+  { k: "in",  t: at(2026, 9, 21, 9, 0) },      // previous week Mon: 9 -> 17 = 8h
+  { k: "out", t: at(2026, 9, 21, 17, 0) },
+];
+
+const days = TCM.days(events, now);
+assert.deepEqual(days.map(d => d.key), ["2026-10-01", "2026-09-30", "2026-09-29", "2026-09-21"]);
+
+const [thu, wed, tue, mon] = days;
+assert.equal(TCM.fmt(tue.ms), "8h00");
+assert.equal(TCM.fmt(tue.breaks), "0h45");
+assert.equal(wed.ms, 0); assert.ok(wed.stale);
+assert.equal(TCM.fmt(thu.ms), "2h00"); assert.ok(thu.open); assert.ok(!thu.stale);
+assert.ok(thu.sessions[0].orphan && thu.sessions[0].ms === 0);
+assert.equal(mon.ms, 8 * 3600000);
+
+const weeks = TCM.weeks(days);
+assert.equal(weeks.length, 2);
+assert.equal(weeks[0].start, at(2026, 9, 28, 0, 0));
+assert.equal(TCM.fmt(weeks[0].ms), "10h00");
+assert.equal(weeks[0].days.length, 3);
+
+assert.ok(TCM.clockedIn(events, now));
+assert.ok(!TCM.clockedIn(events, at(2026, 10, 2, 9, 0)), "yesterday's open in is not clocked-in today");
+assert.equal(TCM.fmt(59 * 60000 + 29000), "0h59");
+assert.equal(TCM.fmt(59 * 60000 + 31000), "1h00");
+
+console.log("clock tests passed");

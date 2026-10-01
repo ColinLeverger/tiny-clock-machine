@@ -1,0 +1,90 @@
+/* clock.js — pure punch-card maths, shared by the page and the node test.
+ * An event is {k: "in"|"out", t: epoch ms}. Everything else is derived:
+ * events -> sessions (in/out pairs) -> days -> weeks. Local time throughout. */
+var TCM = (function () {
+  var DAY = 86400000;
+
+  function pad(n) { return (n < 10 ? "0" : "") + n; }
+  function dayKey(t) {
+    var d = new Date(t);
+    return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+  }
+  function dayStart(t) { var d = new Date(t); d.setHours(0, 0, 0, 0); return d.getTime(); }
+  // Monday 00:00 of the week containing t.
+  function weekStart(t) {
+    var d = new Date(dayStart(t));
+    d.setDate(d.getDate() - (d.getDay() + 6) % 7);
+    return d.getTime();
+  }
+  function fmt(ms) {
+    var m = Math.round(ms / 60000);
+    return Math.floor(m / 60) + "h" + pad(m % 60);
+  }
+  function hhmm(t) { var d = new Date(t); return pad(d.getHours()) + ":" + pad(d.getMinutes()); }
+
+  // Pair events into sessions. An "in" with no "out" is open: it counts up to
+  // `now` only if it started today, otherwise it is a stale session worth 0
+  // until the user fixes it. An "out" with no "in" is an orphan worth 0.
+  // ponytail: a session never spans midnight (a forgotten clock-out must not
+  // swallow the next morning). Night shifts would need a configurable day cut.
+  function sessions(events, now) {
+    var sorted = events.slice().sort(function (a, b) { return a.t - b.t; });
+    var out = [], open = null, today = dayKey(now);
+    function push(start, end) {
+      var s = { start: start, end: end, ms: 0, open: false, stale: false, orphan: start == null };
+      if (start != null && end != null) s.ms = Math.max(0, end - start);
+      else if (start != null) {
+        s.open = true;
+        if (dayKey(start) === today) s.ms = Math.max(0, now - start);
+        else s.stale = true;
+      }
+      out.push(s);
+    }
+    sorted.forEach(function (e) {
+      if (e.k === "in") { if (open) push(open.t, null); open = e; }
+      else if (open && dayKey(open.t) === dayKey(e.t)) { push(open.t, e.t); open = null; }
+      else { if (open) push(open.t, null); open = null; push(null, e.t); }
+    });
+    if (open) push(open.t, null);
+    return out;
+  }
+
+  // Group sessions by the day they started (an orphan "out" by its own day).
+  // Newest day first. breaks = gaps between consecutive closed sessions.
+  function days(events, now) {
+    var byDay = {};
+    sessions(events, now).forEach(function (s) {
+      var key = dayKey(s.start != null ? s.start : s.end);
+      var d = byDay[key] || (byDay[key] = { key: key, start: dayStart(s.start != null ? s.start : s.end), sessions: [], ms: 0, breaks: 0, open: false, stale: false });
+      var prev = d.sessions[d.sessions.length - 1];
+      if (prev && prev.end != null && s.start != null && s.start > prev.end) d.breaks += s.start - prev.end;
+      d.sessions.push(s);
+      d.ms += s.ms;
+      d.open = d.open || s.open;
+      d.stale = d.stale || s.stale;
+    });
+    return Object.keys(byDay).sort().reverse().map(function (k) { return byDay[k]; });
+  }
+
+  // Group days by ISO-ish week (Monday start). Newest first.
+  function weeks(dayList) {
+    var byWeek = {};
+    dayList.forEach(function (d) {
+      var ws = weekStart(d.start);
+      var w = byWeek[ws] || (byWeek[ws] = { start: ws, days: [], ms: 0 });
+      w.days.push(d);
+      w.ms += d.ms;
+    });
+    return Object.keys(byWeek).map(Number).sort(function (a, b) { return b - a; }).map(function (k) { return byWeek[k]; });
+  }
+
+  // True when the latest event is an "in" that happened today.
+  function clockedIn(events, now) {
+    var last = events.slice().sort(function (a, b) { return a.t - b.t; }).pop();
+    return !!last && last.k === "in" && dayKey(last.t) === dayKey(now);
+  }
+
+  return { DAY: DAY, dayKey: dayKey, dayStart: dayStart, weekStart: weekStart, fmt: fmt, hhmm: hhmm,
+    sessions: sessions, days: days, weeks: weeks, clockedIn: clockedIn };
+})();
+if (typeof module !== "undefined") module.exports = TCM;

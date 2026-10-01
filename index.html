@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tiny Clock Machine</title>
+<meta name="description" content="Clock in, clock out, see how long you actually worked. Static PWA, data stays in your browser.">
+<meta name="theme-color" content="#2b3440">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>
+:root{--bg:#f4f5f7;--panel:#fff;--ink:#1b1f24;--muted:#6b7280;--line:#e3e6ea;--line2:#cdd2d8;
+  --head:#2b3440;--accent:#2f5fb3;--ok:#2f8f3f;--ok-d:#25722f;--no:#c0392b;--no-d:#992d22;--warn:#c4621b;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:var(--sans);color:var(--ink);background:var(--bg);font-size:15px;line-height:1.4}
+.topbar{position:sticky;top:0;z-index:2;background:var(--head);color:#fff;font-weight:700;letter-spacing:.04em;
+  padding:.65rem 1rem;padding-top:calc(.65rem + env(safe-area-inset-top,0px))}
+.topbar small{font-weight:400;opacity:.7;letter-spacing:0;margin-left:.3rem}
+main{max-width:520px;margin:0 auto;padding:1rem;padding-bottom:calc(2rem + env(safe-area-inset-bottom,0px))}
+.muted{color:var(--muted)}
+.small{font-size:.85em}
+.warn{color:var(--warn)}
+button,input{font:inherit;color:inherit}
+.btn{border:1px solid var(--line2);background:#fff;border-radius:7px;padding:.4rem .7rem;cursor:pointer;line-height:1.2}
+.btn:hover{background:#f0f2f5}
+.big{display:block;width:100%;border:0;border-radius:14px;padding:1.4rem;font-size:1.5rem;font-weight:700;color:#fff;
+  cursor:pointer;background:var(--ok);box-shadow:0 2px 8px rgba(0,0,0,.15)}
+.big:active{transform:translateY(1px)}
+.big.out{background:var(--no)}
+#status{text-align:center;margin:.7rem 0 1.4rem}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-bottom:1.4rem}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:.6rem .75rem}
+.tile .k{font-size:.78em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.tile .v{font-size:1.45em;font-weight:700;margin:.1rem 0}
+.tile .s{font-size:.85em;color:var(--muted)}
+details{background:var(--panel);border:1px solid var(--line);border-radius:10px;margin-bottom:.6rem}
+summary{cursor:pointer;padding:.6rem .75rem;display:flex;justify-content:space-between;gap:.5rem;font-weight:600}
+summary .s{font-weight:400;color:var(--muted)}
+.day{border-top:1px solid var(--line);padding:.5rem .75rem}
+.day.stale .dayhead b{color:var(--warn)}
+.dayhead{display:flex;justify-content:space-between;gap:.5rem}
+.sess{display:flex;align-items:center;gap:.4rem;padding:.25rem 0}
+.sess input[type=time]{border:1px solid var(--line2);border-radius:6px;padding:.2rem .3rem;background:#fff}
+.sess .d{flex:1;text-align:right;color:var(--muted)}
+.sess .x{border:0;background:none;color:var(--muted);cursor:pointer;font-size:1.1em;padding:0 .3rem}
+.sess .x:hover{color:var(--no)}
+.tools{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-top:1.4rem}
+.tools input[type=date]{border:1px solid var(--line2);border-radius:7px;padding:.35rem .5rem;background:#fff}
+h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:1.4rem 0 .5rem}
+</style>
+</head>
+<body>
+<header class="topbar">⏱ Tiny Clock Machine <small>in · lunch · out</small></header>
+<main>
+  <button id="punch" class="big">Clock in</button>
+  <p id="status" class="muted"></p>
+
+  <div class="tiles" id="tiles"></div>
+
+  <h2>History</h2>
+  <div id="history"></div>
+
+  <div class="tools">
+    <input type="date" id="addDate">
+    <button class="btn" id="addDay" title="Add a 09:00–17:00 session on that day, then fix the times">+ Add day</button>
+    <button class="btn" id="export">Export JSON</button>
+    <label class="btn">Import JSON <input type="file" id="import" accept="application/json,.json" hidden></label>
+  </div>
+  <p class="muted small">Everything stays in this browser (localStorage). Export now and then: a cleared browser is a lost timesheet.</p>
+</main>
+
+<script src="js/clock.js"></script>
+<script>
+(function () {
+  var KEY = "tcm-events";
+  var events = [];
+  try { events = JSON.parse(localStorage.getItem(KEY) || "[]"); } catch (_) {}
+  if (!Array.isArray(events)) events = [];
+
+  function save() { localStorage.setItem(KEY, JSON.stringify(events)); render(); }
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function dateLabel(t, opts) { return new Date(t).toLocaleDateString(undefined, opts || { weekday: "short", day: "numeric", month: "short" }); }
+  // "2026-10-01" + "08:30" -> epoch ms, local time (DST-safe via the Date constructor).
+  function at(dayKey, hhmm) {
+    var d = dayKey.split("-"), h = hhmm.split(":");
+    return new Date(+d[0], d[1] - 1, +d[2], +h[0], +h[1]).getTime();
+  }
+  function find(k, t) { for (var i = 0; i < events.length; i++) if (events[i].k === k && events[i].t === t) return i; return -1; }
+  function avg(ms, n) { return n ? TCM.fmt(ms / n) : "–"; }
+
+  function render() {
+    var now = Date.now(), today = TCM.dayKey(now);
+    var days = TCM.days(events, now), weeks = TCM.weeks(days);
+    var inNow = TCM.clockedIn(events, now);
+    var todayD = days[0] && days[0].key === today ? days[0] : null;
+
+    // --- punch button + status line
+    var b = $("punch");
+    b.textContent = inNow ? "Clock out" : "Clock in";
+    b.classList.toggle("out", inNow);
+    var st;
+    if (inNow) {
+      var open = todayD.sessions[todayD.sessions.length - 1];
+      st = "Clocked in since " + TCM.hhmm(open.start) + " · today " + TCM.fmt(todayD.ms);
+    } else st = todayD ? "Clocked out · today " + TCM.fmt(todayD.ms) : "Not clocked in yet today";
+    var stale = days.filter(function (d) { return d.stale; })[0];
+    if (stale) st += '<br><span class="warn">⚠ Missing clock-out on ' + esc(dateLabel(stale.start)) + ", fix it in the history</span>";
+    $("status").innerHTML = st;
+
+    // --- stat tiles
+    var thisWeek = weeks[0] && weeks[0].start === TCM.weekStart(now) ? weeks[0] : null;
+    var past = weeks.filter(function (w) { return w.start < TCM.weekStart(now); }).slice(0, 4);
+    var pastMs = 0, pastDays = 0;
+    past.forEach(function (w) { pastMs += w.ms; pastDays += w.days.filter(function (d) { return d.ms > 0; }).length; });
+    var allMs = 0, allDays = 0;
+    days.forEach(function (d) { allMs += d.ms; if (d.ms > 0) allDays++; });
+    var wd = thisWeek ? thisWeek.days.filter(function (d) { return d.ms > 0; }).length : 0;
+    $("tiles").innerHTML = [
+      tile("Today", todayD ? TCM.fmt(todayD.ms) : "0h00", todayD && todayD.breaks ? "break " + TCM.fmt(todayD.breaks) : ""),
+      tile("This week", thisWeek ? TCM.fmt(thisWeek.ms) : "0h00", wd + " day" + (wd === 1 ? "" : "s") + " · avg " + avg(thisWeek ? thisWeek.ms : 0, wd)),
+      tile("Last " + past.length + " week" + (past.length === 1 ? "" : "s"), avg(pastMs, past.length) + "/wk", "avg " + avg(pastMs, pastDays) + "/day"),
+      tile("All time", allDays + " day" + (allDays === 1 ? "" : "s"), "avg " + avg(allMs, allDays) + "/day")
+    ].join("");
+
+    // --- history, one <details> per week; keep what the user opened
+    var opened = {};
+    document.querySelectorAll("#history details[open]").forEach(function (d) { opened[d.dataset.w] = 1; });
+    var first = !Object.keys(opened).length;
+    $("history").innerHTML = weeks.map(function (w, i) {
+      var n = w.days.filter(function (d) { return d.ms > 0; }).length;
+      var isOpen = first ? i === 0 : opened[w.start];
+      return '<details data-w="' + w.start + '"' + (isOpen ? " open" : "") + "><summary><span>" +
+        esc(dateLabel(w.start, { day: "numeric", month: "short" })) + " – " + esc(dateLabel(w.start + 6 * TCM.DAY, { day: "numeric", month: "short" })) +
+        '</span><span class="s">' + TCM.fmt(w.ms) + " · " + n + "d · " + avg(w.ms, n) + "/d</span></summary>" +
+        w.days.map(dayHtml).join("") + "</details>";
+    }).join("") || '<p class="muted">Nothing yet. Press the button.</p>';
+  }
+  function tile(k, v, s) { return '<div class="tile"><div class="k">' + esc(k) + '</div><div class="v">' + esc(v) + '</div><div class="s">' + esc(s) + "</div></div>"; }
+  function dayHtml(d) {
+    return '<div class="day' + (d.stale ? " stale" : "") + '"><div class="dayhead"><b>' + esc(dateLabel(d.start)) + '</b><span class="muted">' +
+      TCM.fmt(d.ms) + (d.breaks ? " · break " + TCM.fmt(d.breaks) : "") + "</span></div>" +
+      d.sessions.map(function (s) {
+        return '<div class="sess">' + timeInput(d.key, "in", s.start) + " → " + timeInput(d.key, "out", s.end) +
+          '<span class="d">' + (s.open && !s.stale ? "running" : s.stale ? "⚠ open" : s.orphan ? "no clock-in" : TCM.fmt(s.ms)) + "</span>" +
+          '<button class="x" title="Delete session" data-del data-start="' + (s.start == null ? "" : s.start) + '" data-end="' + (s.end == null ? "" : s.end) + '">×</button></div>';
+      }).join("") + "</div>";
+  }
+  function timeInput(day, k, t) {
+    return '<input type="time" data-day="' + day + '" data-k="' + k + '" data-t="' + (t == null ? "" : t) + '" value="' + (t == null ? "" : TCM.hhmm(t)) + '">';
+  }
+
+  // --- actions
+  $("punch").onclick = function () {
+    events.push({ k: TCM.clockedIn(events, Date.now()) ? "out" : "in", t: Date.now() });
+    save();
+  };
+  $("history").addEventListener("change", function (e) {
+    var el = e.target;
+    if (el.type !== "time" || !el.value) return;
+    var t = at(el.dataset.day, el.value), i = el.dataset.t === "" ? -1 : find(el.dataset.k, +el.dataset.t);
+    if (i < 0) events.push({ k: el.dataset.k, t: t }); else events[i].t = t;
+    save();
+  });
+  $("history").addEventListener("click", function (e) {
+    var el = e.target.closest("[data-del]");
+    if (!el || !confirm("Delete this session?")) return;
+    [["in", el.dataset.start], ["out", el.dataset.end]].forEach(function (p) {
+      var i = p[1] === "" ? -1 : find(p[0], +p[1]);
+      if (i >= 0) events.splice(i, 1);
+    });
+    save();
+  });
+  $("addDate").value = TCM.dayKey(Date.now());
+  $("addDay").onclick = function () {
+    var day = $("addDate").value;
+    if (!day) return;
+    events.push({ k: "in", t: at(day, "09:00") }, { k: "out", t: at(day, "17:00") });
+    save();
+  };
+  $("export").onclick = function () {
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(events, null, 1)], { type: "application/json" }));
+    a.download = "tiny-clock-" + TCM.dayKey(Date.now()) + ".json";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+  $("import").onchange = function () {
+    var f = this.files[0]; this.value = "";
+    if (!f) return;
+    f.text().then(function (txt) {
+      var data = JSON.parse(txt);
+      if (!Array.isArray(data)) throw new Error("not an array");
+      var seen = {}, merged = [];
+      events.concat(data).forEach(function (e) {
+        if (!e || (e.k !== "in" && e.k !== "out") || typeof e.t !== "number" || !isFinite(e.t)) throw new Error("bad event");
+        if (!seen[e.k + e.t]) { seen[e.k + e.t] = 1; merged.push({ k: e.k, t: e.t }); }
+      });
+      events = merged;
+      save();
+    }).catch(function (err) { alert("Import failed: " + err.message); });
+  };
+
+  // Re-render the running counter, unless the user is mid-edit.
+  setInterval(function () { if (!document.activeElement || document.activeElement.tagName !== "INPUT") render(); }, 30000);
+  document.addEventListener("visibilitychange", function () { if (!document.hidden) render(); });
+  render();
+
+  if ("serviceWorker" in navigator) {
+    var had = !!navigator.serviceWorker.controller, reloaded = false;
+    navigator.serviceWorker.addEventListener("controllerchange", function () {
+      if (had && !reloaded) { reloaded = true; location.reload(); }
+    });
+    navigator.serviceWorker.register("sw.js", { updateViaCache: "none" });
+  }
+})();
+</script>
+</body>
+</html>

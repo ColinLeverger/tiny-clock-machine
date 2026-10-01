@@ -1,0 +1,14 @@
+{
+  "name": "Tiny Clock Machine",
+  "short_name": "TinyClock",
+  "description": "Clock in, clock out, see how long you actually worked.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#2b3440",
+  "theme_color": "#2b3440",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

@@ -1,0 +1,16 @@
+# Your real punches live in the browser (localStorage) and in JSON exports.
+# Never commit them.
+tiny-clock*.json
+*.local.json
+*.private.*
+/private/
+
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+node_modules/
+
+# local agent/tooling caches
+.serena/
+.tokensave/
