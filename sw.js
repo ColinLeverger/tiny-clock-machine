@@ -24,7 +24,7 @@ self.addEventListener("activate", function (e) {
 
 self.addEventListener("fetch", function (e) {
   if (e.request.method !== "GET" || new URL(e.request.url).hostname === "api.github.com") return;
-  e.respondWith(caches.match(e.request).then(function (hit) {
+  e.respondWith(caches.match(e.request, { ignoreSearch: true }).then(function (hit) {
     var net = fetch(e.request).then(function (res) {
       if (res && res.ok) {
         var copy = res.clone();

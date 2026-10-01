@@ -52,4 +52,20 @@ assert.deepEqual(TCM.punch([{ k: "in", t: at(2026, 10, 2, 8, 0) }, { k: "out", t
   [{ k: "in", t: late }], "already punched today -> plain in");
 assert.equal(TCM.fmt(TCM.days(TCM.punch([], late), late)[0].ms), "5h30");
 
+// A day ends at 19:00 at the latest: a late press clocks out at 19:00, both
+// for a plain out and for the typical-day fill. An in after 19:00 is kept as is.
+const night = at(2026, 10, 2, 20, 40), seven = at(2026, 10, 2, 19, 0);
+assert.deepEqual(TCM.punch([{ k: "in", t: at(2026, 10, 2, 9, 0) }], night), [{ k: "out", t: seven }], "late out -> capped at 19:00");
+assert.deepEqual(TCM.punch([{ k: "in", t: at(2026, 10, 2, 19, 30) }], night), [{ k: "out", t: night }], "in after 19:00 -> out now");
+assert.deepEqual(TCM.punch([], night).pop(), { k: "out", t: seven }, "late typical day ends 19:00");
+assert.deepEqual(TCM.punch([{ k: "in", t: at(2026, 10, 2, 9, 0) }], seven - 60000), [{ k: "out", t: seven - 60000 }], "18:59 -> out now");
+
+// delta(): worked days vs a daily target, today excluded while it runs.
+const H = 3600000;
+assert.deepEqual(TCM.delta(days, 7 * H, now), { ms: 2 * H, n: 2 }, "Tue + Mon at 8h vs 7h; Thu (today) and stale Wed skipped");
+assert.deepEqual(TCM.delta(weeks[0].days, 7 * H, now), { ms: 1 * H, n: 1 });
+assert.equal(TCM.sfmt(75 * 60000), "+1h15");
+assert.equal(TCM.sfmt(-30 * 60000), "\u22120h30");
+assert.equal(TCM.sfmt(20000), "0h00");
+
 console.log("clock tests passed");

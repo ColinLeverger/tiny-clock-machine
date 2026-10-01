@@ -58,6 +58,23 @@ const sync = TCMSync.create({ getEvents: () => events, setEvents: l => { events 
   assert.equal(events.length, 4);
   assert.equal(statuses.pop(), "ok");
 
+  // clean browser, GitHub moved on (another device punched): take it on start
+  remoteFile = { sha: "elsewhere", content: btoa(JSON.stringify([{ k: "in", t: 1000 }, { k: "out", t: 2000 }, { k: "in", t: 3000 }, { k: "out", t: 4000 }, { k: "in", t: 5000 }])) };
+  await sync.start();
+  assert.equal(events.length, 5);
+  assert.equal(sync.config().sha, "elsewhere");
+  // same sha again: nothing fetched beyond the GET, nothing changed
+  const before = calls.length;
+  await sync.start();
+  assert.equal(calls.length - before, 1);
+  assert.equal(events.length, 5);
+  // dirty browser never refreshes (its own push settles it)
+  events.push({ k: "out", t: 6000 }); sync.changed();
+  remoteFile.sha = "moved-again";
+  await sync.start();
+  assert.ok(!sync.config().dirty, "dirty -> pushed, not pulled");
+  assert.equal(events.length, 6);
+
   sync.disconnect();
   assert.equal(store["tcm-sync"], undefined);
   console.log("sync tests passed");

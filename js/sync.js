@@ -72,6 +72,21 @@ var TCMSync = (function (root) {
       } catch (e) { fail(e); }
       finally { busy = false; }
     }
+    // Local is clean and GitHub moved on (another device punched): take it.
+    // Nothing local can be lost, everything here was already acknowledged.
+    async function refresh() {
+      if (!cfg || busy || cfg.dirty) return;
+      busy = true;
+      try {
+        var r = await remote();
+        if (r && r.sha !== cfg.sha) {
+          opts.setEvents(union(r.events, []));
+          cfg.sha = r.sha; cfg.at = Date.now(); save();
+          status("ok", "Loaded from GitHub " + when(cfg.at));
+        }
+      } catch (e) { fail(e); }
+      finally { busy = false; }
+    }
     // First connection: merge both copies, then push the result.
     async function connect(repo, token) {
       repo = (repo || "").trim(); token = (token || "").trim();
@@ -95,11 +110,12 @@ var TCMSync = (function (root) {
     function start() {
       root.addEventListener("pagehide", flush);
       root.addEventListener("online", flush);
-      if (root.document) root.document.addEventListener("visibilitychange", function () { if (root.document.hidden) flush(); });
+      if (root.document) root.document.addEventListener("visibilitychange", function () { if (root.document.hidden) flush(); else refresh(); });
       if (!cfg) { status("off", "Not connected"); return; }
       if (!opts.getEvents().length) return pull();
       if (cfg.dirty) return push(false);
       status("ok", "Saved to GitHub" + (cfg.at ? " " + when(cfg.at) : ""));
+      return refresh();
     }
     return { config: function () { return cfg; }, connect: connect, disconnect: disconnect, changed: changed,
       push: push, pull: pull, start: start };

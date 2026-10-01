@@ -51,6 +51,7 @@ summary .s{font-weight:400;color:var(--muted)}
 .sess .x:hover{color:var(--no)}
 .tools{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-top:1.4rem}
 .tools input[type=date]{border:1px solid var(--line2);border-radius:7px;padding:.35rem .5rem;background:#fff}
+.tools input[type=number]{border:0;background:none;width:3.4em;padding:0;text-align:right;font-weight:600}
 h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:1.4rem 0 .5rem}
 .sync{margin-top:1rem}
 .sync .pad{border-top:1px solid var(--line);padding:.6rem .75rem;display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
@@ -75,6 +76,8 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
     <button class="btn" id="addDay" title="Add a 09:00–17:00 session on that day, then fix the times">+ Add day</button>
     <button class="btn" id="export">Export JSON</button>
     <label class="btn">Import JSON <input type="file" id="import" accept="application/json,.json" hidden></label>
+    <label class="btn" title="Hours per week. Each worked day is compared with a fifth of it">Target <input type="number" id="target" min="1" max="99" step="0.5"> h/wk</label>
+    <button class="btn" id="badge" hidden title="Show a dot on the app icon while clocked in">● Badge on icon</button>
   </div>
   <details class="sync" id="syncBox">
     <summary><span>☁ GitHub backup</span><span class="s" id="syncState">Not connected</span></summary>
@@ -103,6 +106,11 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
   try { events = JSON.parse(localStorage.getItem(KEY) || "[]"); } catch (_) {}
   if (!Array.isArray(events)) events = [];
 
+  var TITLE = document.title;
+  // Weekly target in hours; the daily target is a fifth of it.
+  // ponytail: five-day week, fixed; add a days/week input if a 4-day week shows up.
+  function target() { var h = parseFloat(localStorage.getItem("tcm-target")); return h > 0 ? h : 39; }
+  function dailyMs() { return target() * 3600000 / 5; }
   function persist() { localStorage.setItem(KEY, JSON.stringify(events)); render(); }
   function save() { persist(); sync.changed(); }
   var sync = TCMSync.create({
@@ -137,18 +145,20 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
     var now = Date.now(), today = TCM.dayKey(now);
     var days = TCM.days(events, now), weeks = TCM.weeks(days);
     var inNow = TCM.clockedIn(events, now), next = TCM.punch(events, now), nextOut = next[next.length - 1].k === "out";
-    var todayD = days[0] && days[0].key === today ? days[0] : null;
+    var todayD = days[0] && days[0].key === today ? days[0] : null, daily = dailyMs();
 
     // --- punch button + status line
     var b = $("punch");
     b.textContent = nextOut ? "Clock out" : "Clock in";
     b.classList.toggle("out", nextOut);
-    var st;
+    var st, left = daily - (todayD ? todayD.ms : 0);
     if (inNow) {
       var open = todayD.sessions[todayD.sessions.length - 1];
-      st = "Clocked in since " + TCM.hhmm(open.start) + " · today " + TCM.fmt(todayD.ms);
-    } else if (todayD) st = "Clocked out · today " + TCM.fmt(todayD.ms);
-    else if (next.length > 1) st = "Nothing punched today · this button records a typical day: 09:00–12:00, 14:00–now";
+      st = "Clocked in since " + TCM.hhmm(open.start) + " · today " + TCM.fmt(todayD.ms) +
+        (left > 0 ? " · leave at " + TCM.hhmm(now + left) : " · " + TCM.sfmt(-left) + " over target");
+      if (next[0].t !== now) st += '<br><span class="warn">Past ' + TCM.hhmm(next[0].t) + ": this button clocks you out at " + TCM.hhmm(next[0].t) + "</span>";
+    } else if (todayD) st = "Clocked out · today " + TCM.fmt(todayD.ms) + " · " + (left > 0 ? TCM.fmt(left) + " to go" : TCM.sfmt(-left) + " over target");
+    else if (next.length > 1) st = "Nothing punched today · this button records a typical day: 09:00–12:00, 14:00–" + (next[3].t === now ? "now" : TCM.hhmm(next[3].t));
     else st = "Not clocked in yet today";
     var stale = days.filter(function (d) { return d.stale; })[0];
     if (stale) st += '<br><span class="warn">⚠ Missing clock-out on ' + esc(dateLabel(stale.start)) + ", fix it in the history</span>";
@@ -162,12 +172,19 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
     var allMs = 0, allDays = 0;
     days.forEach(function (d) { allMs += d.ms; if (d.ms > 0) allDays++; });
     var wd = thisWeek ? thisWeek.days.filter(function (d) { return d.ms > 0; }).length : 0;
+    var wDelta = TCM.delta(thisWeek ? thisWeek.days : [], daily, now), balance = TCM.delta(days, daily, now);
     $("tiles").innerHTML = [
       tile("Today", todayD ? TCM.fmt(todayD.ms) : "0h00", todayD && todayD.breaks ? "break " + TCM.fmt(todayD.breaks) : ""),
-      tile("This week", thisWeek ? TCM.fmt(thisWeek.ms) : "0h00", wd + " day" + (wd === 1 ? "" : "s") + " · avg " + avg(thisWeek ? thisWeek.ms : 0, wd)),
+      tile("This week", thisWeek ? TCM.fmt(thisWeek.ms) : "0h00", wd + " day" + (wd === 1 ? "" : "s") + (wDelta.n ? " · " + TCM.sfmt(wDelta.ms) + " vs target" : "")),
       tile("Last " + past.length + " week" + (past.length === 1 ? "" : "s"), avg(pastMs, past.length) + "/wk", "avg " + avg(pastMs, pastDays) + "/day"),
-      tile("All time", allDays + " day" + (allDays === 1 ? "" : "s"), "avg " + avg(allMs, allDays) + "/day")
+      tile("Balance", TCM.sfmt(balance.ms), allDays + " day" + (allDays === 1 ? "" : "s") + " · avg " + avg(allMs, allDays) + " vs " + TCM.fmt(daily))
     ].join("");
+
+    // --- dot on the app icon (and tab title) while clocked in. Installed app
+    // only; iOS and Android draw it once notifications are allowed.
+    document.title = (inNow ? "● " : "") + TITLE;
+    if (navigator.setAppBadge) (inNow ? navigator.setAppBadge(1) : navigator.clearAppBadge()).catch(function () {});
+    $("badge").hidden = !(navigator.setAppBadge && window.Notification && Notification.permission === "default");
 
     // --- history, one <details> per week; keep what the user opened
     var opened = {};
@@ -218,6 +235,9 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
     });
     save();
   });
+  $("target").value = target();
+  $("target").onchange = function () { localStorage.setItem("tcm-target", this.value); render(); };
+  $("badge").onclick = function () { Notification.requestPermission().then(render, render); };
   $("addDate").value = TCM.dayKey(Date.now());
   $("addDay").onclick = function () {
     var day = $("addDate").value;
@@ -258,7 +278,18 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
     if (!sync.config().dirty || confirm("This device has unsaved punches. Replace them with the GitHub copy?")) sync.pull();
   };
   $("syncOff").onclick = function () { if (confirm("Disconnect GitHub backup? The repo keeps its copy.")) sync.disconnect(); };
-  sync.start();
+  // ?punch in the URL presses the button on open: NFC tag, iOS Shortcut, app
+  // shortcut. After the GitHub refresh, so another device's punches count.
+  var fromUrl = new URLSearchParams(location.search).has("punch");
+  Promise.resolve(sync.start()).then(function () {
+    if (!fromUrl) return;
+    history.replaceState(null, "", location.pathname);
+    var t0 = Date.now();
+    // ponytail: a second open within a minute is a double tap, not an undo.
+    if (events.some(function (e) { return Math.abs(t0 - e.t) < 60000; })) return;
+    events.push.apply(events, TCM.punch(events, t0));
+    save();
+  });
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist();
 
   // Re-render the running counter, unless the user is mid-edit.

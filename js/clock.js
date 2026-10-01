@@ -20,6 +20,11 @@ var TCM = (function () {
     var m = Math.round(ms / 60000);
     return Math.floor(m / 60) + "h" + pad(m % 60);
   }
+  // Signed, for deltas against a target: "+1h15", "−0h30", "0h00".
+  function sfmt(ms) {
+    var m = Math.round(ms / 60000);
+    return (m < 0 ? "\u2212" : m > 0 ? "+" : "") + fmt(Math.abs(m) * 60000);
+  }
   function hhmm(t) { var d = new Date(t); return pad(d.getHours()) + ":" + pad(d.getMinutes()); }
 
   // Pair events into sessions. An "in" with no "out" is open: it counts up to
@@ -78,29 +83,46 @@ var TCM = (function () {
     return Object.keys(byWeek).map(Number).sort(function (a, b) { return b - a; }).map(function (k) { return byWeek[k]; });
   }
 
+  // Worked time minus a daily target, summed over closed days with work.
+  // Today is left out while it runs (its progress is the "leave at" hint).
+  // A day without work costs nothing: holidays, leave and sick days need no
+  // bookkeeping. ponytail: if a day off should consume banked hours instead,
+  // add leave entries.
+  function delta(dayList, dailyMs, now) {
+    var today = dayKey(now), ms = 0, n = 0;
+    dayList.forEach(function (d) { if (d.ms > 0 && d.key !== today) { ms += d.ms - dailyMs; n++; } });
+    return { ms: ms, n: n };
+  }
+
+  function lastEvent(events) { return events.slice().sort(function (a, b) { return a.t - b.t; }).pop(); }
   // True when the latest event is an "in" that happened today.
   function clockedIn(events, now) {
-    var last = events.slice().sort(function (a, b) { return a.t - b.t; }).pop();
+    var last = lastEvent(events);
     return !!last && last.k === "in" && dayKey(last.t) === dayKey(now);
   }
 
   function atHour(t, h) { var d = new Date(t); d.setHours(h, 0, 0, 0); return d.getTime(); }
+  // The typical day, device local time. A day never ends after END: a press at
+  // 20:40 means the clock-out was forgotten, so it is recorded at 19:00.
+  // ponytail: fixed hours; make them a setting if a second schedule shows up.
+  var START = 9, LUNCH_OUT = 12, LUNCH_IN = 14, END = 19;
 
-  // What one press of the button records. Normally it toggles in/out. The
+  // What one press of the button records. Normally it toggles in/out, with
+  // the clock-out capped at END (unless the clock-in itself came later). The
   // first press of the day after 14:00 means the whole day went unpunched:
   // record a typical day (09:00-12:00, 14:00-now) so that press is the
   // evening clock-out, then fix the times in the history if they were off.
-  // ponytail: fixed hours; make them a setting if a second schedule shows up.
   function punch(events, now) {
-    if (clockedIn(events, now)) return [{ k: "out", t: now }];
+    var end = Math.min(now, atHour(now, END));
+    if (clockedIn(events, now)) return [{ k: "out", t: lastEvent(events).t < end ? end : now }];
     var today = dayKey(now);
     var anyToday = events.some(function (e) { return dayKey(e.t) === today; });
-    if (!anyToday && now >= atHour(now, 14))
-      return [{ k: "in", t: atHour(now, 9) }, { k: "out", t: atHour(now, 12) }, { k: "in", t: atHour(now, 14) }, { k: "out", t: now }];
+    if (!anyToday && now >= atHour(now, LUNCH_IN))
+      return [{ k: "in", t: atHour(now, START) }, { k: "out", t: atHour(now, LUNCH_OUT) }, { k: "in", t: atHour(now, LUNCH_IN) }, { k: "out", t: end }];
     return [{ k: "in", t: now }];
   }
 
-  return { DAY: DAY, dayKey: dayKey, dayStart: dayStart, weekStart: weekStart, fmt: fmt, hhmm: hhmm,
-    sessions: sessions, days: days, weeks: weeks, clockedIn: clockedIn, punch: punch };
+  return { DAY: DAY, dayKey: dayKey, dayStart: dayStart, weekStart: weekStart, fmt: fmt, sfmt: sfmt, hhmm: hhmm,
+    sessions: sessions, days: days, weeks: weeks, delta: delta, clockedIn: clockedIn, punch: punch };
 })();
 if (typeof module !== "undefined") module.exports = TCM;
