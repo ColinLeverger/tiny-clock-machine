@@ -106,7 +106,7 @@ var TCMSync = (function (root) {
       cfg.dirty = true; save(); status("dirty", "Waiting to save…");
       clearTimeout(timer); timer = setTimeout(function () { push(false); }, 2000);
     }
-    function flush() { if (cfg && cfg.dirty && !busy) push(false, true); }
+    function flush() { if (cfg && cfg.dirty && !busy) return push(false, true); }
     function start() {
       root.addEventListener("pagehide", flush);
       root.addEventListener("online", flush);
@@ -118,7 +118,7 @@ var TCMSync = (function (root) {
       return refresh();
     }
     return { config: function () { return cfg; }, connect: connect, disconnect: disconnect, changed: changed,
-      push: push, pull: pull, start: start };
+      push: push, pull: pull, flush: flush, start: start };
   }
   return { create: create, union: union, PATH: PATH };
 })(typeof window !== "undefined" ? window : globalThis);

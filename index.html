@@ -293,9 +293,14 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
     history.replaceState(null, "", location.pathname);
     var t0 = Date.now();
     // ponytail: a second open within a minute is a double tap, not an undo.
-    if (events.some(function (e) { return Math.abs(t0 - e.t) < 60000; })) return;
-    events.push.apply(events, TCM.punch(events, t0, endMin()));
-    save();
+    if (!events.some(function (e) { return Math.abs(t0 - e.t) < 60000; })) {
+      events.push.apply(events, TCM.punch(events, t0, endMin()));
+      save();
+    }
+    // The tab was opened only to punch: show the result for a moment, push
+    // the backup, then close it. A browser closes a tab whose history holds a
+    // single page (Chromium, Brave, Firefox); Safari ignores window.close().
+    setTimeout(function () { Promise.resolve(sync.flush()).then(function () { window.close(); }); }, 1200);
   });
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist();
 

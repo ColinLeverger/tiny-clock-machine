@@ -74,11 +74,22 @@ the parameter:
 Write that URL on an NFC tag stuck to the desk, make it an iOS Shortcut
 (*Open URLs*, then Siri or a location automation), or on Android long-press
 the installed icon: it has a **Punch** shortcut. A second open within a
-minute is treated as a double tap and ignored.
+minute is treated as a double tap and ignored. The tab shows the result for
+a second, pushes the backup, then **closes itself** — in Chromium browsers
+(Brave, Chrome, Edge) and Firefox, which let a page close a tab that has no
+history; Safari keeps it open.
 
-On iOS a Shortcut or a tag opens **Safari**, not the home-screen app, and the
-two have separate storage. Connect both to the GitHub backup below: Safari
-pushes the punch, the app takes it the next time it comes to the front.
+Which browser opens the URL is a phone setting, not the app's: the tag and
+*Open URLs* use the **default browser** (Settings → your browser → Default
+Browser App on iOS). To force one from a Shortcut regardless, open
+`brave://open-url?url=https://colinleverger.github.io/tiny-clock-machine/?punch`
+(same idea for `googlechrome://` or `firefox://open-url?url=`).
+
+The browser that opens the URL must be the one holding your punches, or
+share them through the backup. On iOS a Shortcut or a tag never opens the
+home-screen app, and the browser and the app have separate storage: connect
+both to the GitHub backup below, the browser pushes the punch and the app
+takes it the next time it comes to the front.
 
 ## GitHub backup (free, no server)
 

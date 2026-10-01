@@ -68,12 +68,19 @@ const sync = TCMSync.create({ getEvents: () => events, setEvents: l => { events 
   await sync.start();
   assert.equal(calls.length - before, 1);
   assert.equal(events.length, 5);
+  // flush() returns the push, so a caller can wait for it before closing the tab
+  events.push({ k: "in", t: 5500 }); sync.changed();
+  const flushed = sync.flush();
+  assert.ok(flushed instanceof Promise, "dirty -> flush returns the push");
+  await flushed;
+  assert.ok(!sync.config().dirty);
+  assert.equal(sync.flush(), undefined, "clean -> nothing to flush");
   // dirty browser never refreshes (its own push settles it)
   events.push({ k: "out", t: 6000 }); sync.changed();
   remoteFile.sha = "moved-again";
   await sync.start();
   assert.ok(!sync.config().dirty, "dirty -> pushed, not pulled");
-  assert.equal(events.length, 6);
+  assert.equal(events.length, 7);
 
   sync.disconnect();
   assert.equal(store["tcm-sync"], undefined);
