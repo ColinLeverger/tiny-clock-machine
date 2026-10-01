@@ -52,13 +52,17 @@ assert.deepEqual(TCM.punch([{ k: "in", t: at(2026, 10, 2, 8, 0) }, { k: "out", t
   [{ k: "in", t: late }], "already punched today -> plain in");
 assert.equal(TCM.fmt(TCM.days(TCM.punch([], late), late)[0].ms), "5h30");
 
-// A day ends at 19:00 at the latest: a late press clocks out at 19:00, both
-// for a plain out and for the typical-day fill. An in after 19:00 is kept as is.
-const night = at(2026, 10, 2, 20, 40), seven = at(2026, 10, 2, 19, 0);
-assert.deepEqual(TCM.punch([{ k: "in", t: at(2026, 10, 2, 9, 0) }], night), [{ k: "out", t: seven }], "late out -> capped at 19:00");
-assert.deepEqual(TCM.punch([{ k: "in", t: at(2026, 10, 2, 19, 30) }], night), [{ k: "out", t: night }], "in after 19:00 -> out now");
-assert.deepEqual(TCM.punch([], night).pop(), { k: "out", t: seven }, "late typical day ends 19:00");
-assert.deepEqual(TCM.punch([{ k: "in", t: at(2026, 10, 2, 9, 0) }], seven - 60000), [{ k: "out", t: seven - 60000 }], "18:59 -> out now");
+// A day ends at the cap (18:30 by default, configurable): a late press clocks
+// out at the cap, both for a plain out and for the typical-day fill. An in
+// after the cap is kept as is.
+const night = at(2026, 10, 2, 20, 40), cap = at(2026, 10, 2, 18, 30), seven = at(2026, 10, 2, 19, 0);
+assert.equal(TCM.END, 18 * 60 + 30);
+assert.deepEqual(TCM.punch([{ k: "in", t: at(2026, 10, 2, 9, 0) }], night), [{ k: "out", t: cap }], "late out -> capped at 18:30");
+assert.deepEqual(TCM.punch([{ k: "in", t: at(2026, 10, 2, 9, 0) }], night, 19 * 60), [{ k: "out", t: seven }], "custom cap 19:00");
+assert.deepEqual(TCM.punch([{ k: "in", t: at(2026, 10, 2, 19, 30) }], night), [{ k: "out", t: night }], "in after the cap -> out now");
+assert.deepEqual(TCM.punch([], night).pop(), { k: "out", t: cap }, "late typical day ends at the cap");
+assert.deepEqual(TCM.punch([], night, 19 * 60).pop(), { k: "out", t: seven }, "late typical day, custom cap");
+assert.deepEqual(TCM.punch([{ k: "in", t: at(2026, 10, 2, 9, 0) }], cap - 60000), [{ k: "out", t: cap - 60000 }], "18:29 -> out now");
 
 // delta(): worked days vs a daily target, today excluded while it runs.
 const H = 3600000;

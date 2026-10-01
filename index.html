@@ -51,7 +51,8 @@ summary .s{font-weight:400;color:var(--muted)}
 .sess .x:hover{color:var(--no)}
 .tools{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-top:1.4rem}
 .tools input[type=date]{border:1px solid var(--line2);border-radius:7px;padding:.35rem .5rem;background:#fff}
-.tools input[type=number]{border:0;background:none;width:3.4em;padding:0;text-align:right;font-weight:600}
+.tools input[type=number],.tools input[type=time]{border:0;background:none;padding:0;font-weight:600}
+.tools input[type=number]{width:3.4em;text-align:right}
 h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:1.4rem 0 .5rem}
 .sync{margin-top:1rem}
 .sync .pad{border-top:1px solid var(--line);padding:.6rem .75rem;display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
@@ -77,6 +78,7 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
     <button class="btn" id="export">Export JSON</button>
     <label class="btn">Import JSON <input type="file" id="import" accept="application/json,.json" hidden></label>
     <label class="btn" title="Hours per week. Each worked day is compared with a fifth of it">Target <input type="number" id="target" min="1" max="99" step="0.5"> h/wk</label>
+    <label class="btn" title="A day never ends later than this. A press after it clocks you out at this time">Day ends <input type="time" id="dayEnd"></label>
     <button class="btn" id="badge" hidden title="Show a dot on the app icon while clocked in">● Badge on icon</button>
   </div>
   <details class="sync" id="syncBox">
@@ -111,6 +113,9 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
   // ponytail: five-day week, fixed; add a days/week input if a 4-day week shows up.
   function target() { var h = parseFloat(localStorage.getItem("tcm-target")); return h > 0 ? h : 39; }
   function dailyMs() { return target() * 3600000 / 5; }
+  // Latest clock-out of a day, "HH:MM" -> minutes since midnight.
+  function endMin() { var p = (localStorage.getItem("tcm-end") || "").split(":"); return p.length === 2 ? +p[0] * 60 + +p[1] : TCM.END; }
+  function endHHMM() { var m = endMin(); return TCM.hhmm(new Date(2000, 0, 1, 0, m)); }
   function persist() { localStorage.setItem(KEY, JSON.stringify(events)); render(); }
   function save() { persist(); sync.changed(); }
   var sync = TCMSync.create({
@@ -144,7 +149,7 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
   function render() {
     var now = Date.now(), today = TCM.dayKey(now);
     var days = TCM.days(events, now), weeks = TCM.weeks(days);
-    var inNow = TCM.clockedIn(events, now), next = TCM.punch(events, now), nextOut = next[next.length - 1].k === "out";
+    var inNow = TCM.clockedIn(events, now), next = TCM.punch(events, now, endMin()), nextOut = next[next.length - 1].k === "out";
     var todayD = days[0] && days[0].key === today ? days[0] : null, daily = dailyMs();
 
     // --- punch button + status line
@@ -216,7 +221,7 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
 
   // --- actions
   $("punch").onclick = function () {
-    events.push.apply(events, TCM.punch(events, Date.now()));
+    events.push.apply(events, TCM.punch(events, Date.now(), endMin()));
     save();
   };
   $("history").addEventListener("change", function (e) {
@@ -237,6 +242,8 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
   });
   $("target").value = target();
   $("target").onchange = function () { localStorage.setItem("tcm-target", this.value); render(); };
+  $("dayEnd").value = endHHMM();
+  $("dayEnd").onchange = function () { if (this.value) localStorage.setItem("tcm-end", this.value); else localStorage.removeItem("tcm-end"); render(); };
   $("badge").onclick = function () { Notification.requestPermission().then(render, render); };
   $("addDate").value = TCM.dayKey(Date.now());
   $("addDay").onclick = function () {
@@ -287,7 +294,7 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
     var t0 = Date.now();
     // ponytail: a second open within a minute is a double tap, not an undo.
     if (events.some(function (e) { return Math.abs(t0 - e.t) < 60000; })) return;
-    events.push.apply(events, TCM.punch(events, t0));
+    events.push.apply(events, TCM.punch(events, t0, endMin()));
     save();
   });
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist();

@@ -38,9 +38,9 @@ On a phone: open the Pages URL, **Add to Home Screen**. That is the PWA.
   when you can **leave** to meet the daily target. Forgot the whole day? The
   first press after **14:00** (device local time) records a typical day —
   09:00–12:00, 14:00–now — so that press is your evening clock-out. A day
-  never ends after **19:00**: a press at 20:40 clocks you out at 19:00, a
-  forgotten clock-out is not two extra hours. Fix the times in the history
-  if they were off.
+  never ends after the **Day ends** time (bottom of the page, 18:30 by
+  default): a press at 20:40 clocks you out at 18:30, a forgotten clock-out
+  is not two extra hours. Fix the times in the history if they were off.
 - **Tiles** — today (with the break length), this week (with its ± against
   the target), average of the last four full weeks, and the **balance**:
   hours worked minus the target, summed over every closed day with work.

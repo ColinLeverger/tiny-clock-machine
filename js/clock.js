@@ -102,18 +102,20 @@ var TCM = (function () {
   }
 
   function atHour(t, h) { var d = new Date(t); d.setHours(h, 0, 0, 0); return d.getTime(); }
-  // The typical day, device local time. A day never ends after END: a press at
-  // 20:40 means the clock-out was forgotten, so it is recorded at 19:00.
-  // ponytail: fixed hours; make them a setting if a second schedule shows up.
-  var START = 9, LUNCH_OUT = 12, LUNCH_IN = 14, END = 19;
+  function atMin(t, m) { var d = new Date(t); d.setHours(0, m, 0, 0); return d.getTime(); }
+  // The typical day, device local time. A day never ends after `endMin`
+  // (minutes since midnight, default END): a press at 20:40 means the
+  // clock-out was forgotten, so it is recorded at the cap.
+  // ponytail: fixed typical hours; make them settings if a second schedule shows up.
+  var START = 9, LUNCH_OUT = 12, LUNCH_IN = 14, END = 18 * 60 + 30;
 
   // What one press of the button records. Normally it toggles in/out, with
-  // the clock-out capped at END (unless the clock-in itself came later). The
-  // first press of the day after 14:00 means the whole day went unpunched:
-  // record a typical day (09:00-12:00, 14:00-now) so that press is the
-  // evening clock-out, then fix the times in the history if they were off.
-  function punch(events, now) {
-    var end = Math.min(now, atHour(now, END));
+  // the clock-out capped at endMin (unless the clock-in itself came later).
+  // The first press of the day after 14:00 means the whole day went
+  // unpunched: record a typical day (09:00-12:00, 14:00-now) so that press is
+  // the evening clock-out, then fix the times in the history if they were off.
+  function punch(events, now, endMin) {
+    var end = Math.min(now, atMin(now, endMin == null ? END : endMin));
     if (clockedIn(events, now)) return [{ k: "out", t: lastEvent(events).t < end ? end : now }];
     var today = dayKey(now);
     var anyToday = events.some(function (e) { return dayKey(e.t) === today; });
@@ -122,7 +124,7 @@ var TCM = (function () {
     return [{ k: "in", t: now }];
   }
 
-  return { DAY: DAY, dayKey: dayKey, dayStart: dayStart, weekStart: weekStart, fmt: fmt, sfmt: sfmt, hhmm: hhmm,
+  return { DAY: DAY, END: END, dayKey: dayKey, dayStart: dayStart, weekStart: weekStart, fmt: fmt, sfmt: sfmt, hhmm: hhmm,
     sessions: sessions, days: days, weeks: weeks, delta: delta, clockedIn: clockedIn, punch: punch };
 })();
 if (typeof module !== "undefined") module.exports = TCM;
