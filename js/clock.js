@@ -124,7 +124,7 @@ var TCM = (function () {
     return [{ k: "in", t: now }];
   }
 
-  return { DAY: DAY, END: END, dayKey: dayKey, dayStart: dayStart, weekStart: weekStart, fmt: fmt, sfmt: sfmt, hhmm: hhmm,
+  return { DAY: DAY, END: END, LUNCH_OUT: LUNCH_OUT, LUNCH_IN: LUNCH_IN, dayKey: dayKey, dayStart: dayStart, weekStart: weekStart, fmt: fmt, sfmt: sfmt, hhmm: hhmm,
     sessions: sessions, days: days, weeks: weeks, delta: delta, clockedIn: clockedIn, punch: punch };
 })();
 if (typeof module !== "undefined") module.exports = TCM;

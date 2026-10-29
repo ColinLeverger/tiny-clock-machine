@@ -60,8 +60,11 @@ On a phone: open the Pages URL, **Add to Home Screen**. That is the PWA.
   notifications, which is all that button asks.
 - **History** — one block per week (Monday start), one row per session.
   Every time is an `<input type="time">`: tap it to correct a punch. `×`
-  deletes a session. **+ Add day** inserts a 09:00–17:00 session on the
-  chosen date for days you forgot entirely, then fix the times.
+  deletes a session. A session that runs through lunch has a `✂`: it clocks
+  you out at 12:00 and back in at 14:00, then fix the times. A day of six
+  hours or more with no break is flagged *no break?*, since that is nearly
+  always a forgotten lunch. **+ Add day** inserts a 09:00–17:00 session on
+  the chosen date for days you forgot entirely, then fix the times.
 - **Export / Import JSON** — the whole log as `[{ "k": "in"|"out", "t": ms }]`.
   Import merges and de-duplicates, it never wipes what is already there.
 - **☁ GitHub backup** — see below. The footer tells you how many punches the

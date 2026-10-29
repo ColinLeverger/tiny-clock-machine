@@ -72,4 +72,14 @@ assert.equal(TCM.sfmt(75 * 60000), "+1h15");
 assert.equal(TCM.sfmt(-30 * 60000), "\u22120h30");
 assert.equal(TCM.sfmt(20000), "0h00");
 
+// Forgotten lunch: dropping out 12:00 / in 14:00 into a 09:00-17:30 day pairs
+// into two sessions with a 2h break (what the history's scissors button does).
+const split = TCM.days([
+  { k: "in", t: at(2026, 10, 5, 9, 0) }, { k: "out", t: at(2026, 10, 5, 17, 30) },
+  { k: "out", t: at(2026, 10, 5, TCM.LUNCH_OUT, 0) }, { k: "in", t: at(2026, 10, 5, TCM.LUNCH_IN, 0) },
+], now)[0];
+assert.equal(split.sessions.length, 2);
+assert.equal(TCM.fmt(split.breaks), "2h00");
+assert.equal(TCM.fmt(split.ms), "6h30");
+
 console.log("clock tests passed");

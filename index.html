@@ -52,6 +52,7 @@ summary .s{font-weight:400;color:var(--muted)}
 .sess .d{flex:1;text-align:right;color:var(--muted)}
 .sess .x{border:0;background:none;color:var(--muted);cursor:pointer;font-size:1.1em;padding:0 .3rem}
 .sess .x:hover{color:var(--no)}
+.sess .x[data-split]:hover{color:var(--accent)}
 .tools{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-top:1.4rem}
 .tools input[type=date]{border:1px solid var(--line2);border-radius:7px;padding:.35rem .5rem;background:var(--panel)}
 .tools input[type=number],.tools input[type=time]{border:0;background:none;padding:0;font-weight:600}
@@ -222,12 +223,19 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
     foot();
   }
   function tile(k, v, s) { return '<div class="tile"><div class="k">' + esc(k) + '</div><div class="v">' + esc(v) + '</div><div class="s">' + esc(s) + "</div></div>"; }
+  // The typical lunch of that day, as epoch ms: [out, back in].
+  function lunch(day) { return [at(day, TCM.LUNCH_OUT + ":00"), at(day, TCM.LUNCH_IN + ":00")]; }
   function dayHtml(d) {
+    var l = lunch(d.key);
+    // ponytail: six hours straight with no break is nearly always a forgotten lunch.
+    var noBreak = !d.breaks && d.ms > 6 * 3600000;
     return '<div class="day' + (d.stale ? " stale" : "") + '"><div class="dayhead"><b>' + esc(dateLabel(d.start)) + '</b><span class="muted">' +
-      TCM.fmt(d.ms) + (d.breaks ? " · break " + TCM.fmt(d.breaks) : "") + "</span></div>" +
+      TCM.fmt(d.ms) + (d.breaks ? " · break " + TCM.fmt(d.breaks) : noBreak ? ' · <span class="warn">no break?</span>' : "") + "</span></div>" +
       d.sessions.map(function (s) {
+        var spansLunch = s.start != null && s.start < l[0] && (s.end == null ? Date.now() : s.end) > l[1];
         return '<div class="sess">' + timeInput(d.key, "in", s.start) + " → " + timeInput(d.key, "out", s.end) +
           '<span class="d">' + (s.open && !s.stale ? "running" : s.stale ? "⚠ open" : s.orphan ? "no clock-in" : TCM.fmt(s.ms)) + "</span>" +
+          (spansLunch ? '<button class="x" title="Split for lunch: out at ' + TCM.hhmm(l[0]) + ", back at " + TCM.hhmm(l[1]) + ', then fix the times" data-split="' + d.key + '">✂</button>' : "") +
           '<button class="x" title="Delete session" data-del data-start="' + (s.start == null ? "" : s.start) + '" data-end="' + (s.end == null ? "" : s.end) + '">×</button></div>';
       }).join("") + "</div>";
   }
@@ -260,6 +268,13 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
     if (el.type !== "time" || !el.value) return;
     var t = at(el.dataset.day, el.value), i = el.dataset.t === "" ? -1 : find(el.dataset.k, +el.dataset.t);
     if (i < 0) events.push({ k: el.dataset.k, t: t }); else events[i].t = t;
+    save();
+  });
+  $("history").addEventListener("click", function (e) {
+    var el = e.target.closest("[data-split]");
+    if (!el) return;
+    var l = lunch(el.dataset.split);
+    events.push({ k: "out", t: l[0] }, { k: "in", t: l[1] });
     save();
   });
   $("history").addEventListener("click", function (e) {
