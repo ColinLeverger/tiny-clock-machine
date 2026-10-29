@@ -82,4 +82,16 @@ assert.equal(split.sessions.length, 2);
 assert.equal(TCM.fmt(split.breaks), "2h00");
 assert.equal(TCM.fmt(split.ms), "6h30");
 
+// Day marks: a marked day exists without punches; "half" expects half the
+// target even with no work, "off" expects nothing so any work is extra.
+const marks = { "2026-09-22": "half", "2026-09-23": "off", "2026-09-24": "half", "2026-09-25": "off" };
+const marked = TCM.days([
+  { k: "in", t: at(2026, 9, 22, 9, 0) }, { k: "out", t: at(2026, 9, 22, 13, 0) },   // half day, worked 4h -> +0h30 vs 3h30
+  { k: "in", t: at(2026, 9, 23, 9, 0) }, { k: "out", t: at(2026, 9, 23, 11, 0) },   // day off, worked 2h -> +2h00
+], now, marks);                                                                      // 24th half, no work -> -3h30; 25th off, no work -> nothing
+assert.deepEqual(marked.map(d => d.key), ["2026-09-25", "2026-09-24", "2026-09-23", "2026-09-22"]);
+assert.equal(marked[1].mark, "half"); assert.equal(marked[1].ms, 0); assert.equal(marked[1].sessions.length, 0);
+assert.deepEqual(TCM.delta(marked, 7 * H, now), { ms: (0.5 + 2 - 3.5) * H, n: 3 });
+assert.equal(TCM.days(events, now).length, 4, "no marks -> unchanged");
+
 console.log("clock tests passed");

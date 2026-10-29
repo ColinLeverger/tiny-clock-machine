@@ -27,6 +27,7 @@ main{max-width:520px;margin:0 auto;padding:1rem;padding-bottom:calc(2rem + env(s
 .muted{color:var(--muted)}
 .small{font-size:.85em}
 .warn{color:var(--warn)}
+.mark{color:var(--accent)}
 button,input{font:inherit;color:inherit}
 .btn{border:1px solid var(--line2);background:var(--panel);border-radius:7px;padding:.4rem .7rem;cursor:pointer;line-height:1.2}
 .btn:hover{background:var(--bg)}
@@ -38,30 +39,43 @@ button,input{font:inherit;color:inherit}
 #backup{margin-top:.4rem}
 .tiles{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin:1.4rem 0}
 .tile{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:.6rem .75rem}
-.tile .k{font-size:.78em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.tile[data-since]{cursor:pointer}
+.tile .k,.trend .k{font-size:.78em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
 .tile .v{font-size:1.45em;font-weight:700;margin:.1rem 0}
 .tile .s{font-size:.85em;color:var(--muted)}
+.trend{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:.6rem .75rem;margin-bottom:1.4rem}
+.trend svg{display:block;width:100%;height:auto;margin-top:.3rem}
+.trend rect{fill:var(--accent)}
+.trend rect.now{opacity:.5}
+.trend line{stroke:var(--muted);stroke-width:1;vector-effect:non-scaling-stroke}
+.trend line.target{stroke-dasharray:3 3}
 details{background:var(--panel);border:1px solid var(--line);border-radius:10px;margin-bottom:.6rem}
 summary{cursor:pointer;padding:.6rem .75rem;display:flex;justify-content:space-between;gap:.5rem;font-weight:600}
 summary .s{font-weight:400;color:var(--muted)}
 .day{border-top:1px solid var(--line);padding:.5rem .75rem}
 .day.stale .dayhead b{color:var(--warn)}
 .dayhead{display:flex;justify-content:space-between;gap:.5rem}
+.bar{position:relative;height:7px;background:var(--line);border-radius:4px;margin:.35rem 0 .15rem;overflow:hidden}
+.bar i,.bar b{position:absolute;top:0;bottom:0}
+.bar i{background:var(--accent);border-radius:2px}
+.bar i.open{background:repeating-linear-gradient(45deg,var(--accent) 0 3px,transparent 3px 6px)}
+.bar i.stale{background:repeating-linear-gradient(45deg,var(--warn) 0 3px,transparent 3px 6px)}
+.bar i.orphan{background:var(--warn)}
+.bar b{width:1px;background:var(--muted);opacity:.6}
 .sess{display:flex;align-items:center;gap:.4rem;padding:.25rem 0}
 .sess input[type=time]{border:1px solid var(--line2);border-radius:6px;padding:.2rem .3rem;background:var(--panel)}
 .sess .d{flex:1;text-align:right;color:var(--muted)}
 .sess .x{border:0;background:none;color:var(--muted);cursor:pointer;font-size:1.1em;padding:0 .3rem}
 .sess .x:hover{color:var(--no)}
 .sess .x[data-split]:hover{color:var(--accent)}
-.tools{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-top:1.4rem}
+.tools{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin:1.4rem 0 .6rem}
 .tools input[type=date]{border:1px solid var(--line2);border-radius:7px;padding:.35rem .5rem;background:var(--panel)}
-.tools input[type=number],.tools input[type=time]{border:0;background:none;padding:0;font-weight:600}
-.tools input[type=number]{width:3.4em;text-align:right}
+.pad{border-top:1px solid var(--line);padding:.6rem .75rem;display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
+.pad input[type=number],.pad input[type=time]{border:0;background:none;padding:0;font-weight:600}
+.pad input[type=number]{width:3.4em;text-align:right}
+#syncBox input{border:1px solid var(--line2);border-radius:7px;padding:.35rem .5rem;background:var(--panel);flex:1;min-width:10em}
+.box .s.ok{color:var(--ok)}.box .s.error,.box .s.conflict{color:var(--no)}.box .s.dirty,.box .s.syncing{color:var(--warn)}
 h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:1.4rem 0 .5rem}
-.sync{margin-top:1rem}
-.sync .pad{border-top:1px solid var(--line);padding:.6rem .75rem;display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
-.sync input{border:1px solid var(--line2);border-radius:7px;padding:.35rem .5rem;background:var(--panel);flex:1;min-width:10em}
-.sync .s.ok{color:var(--ok)}.sync .s.error,.sync .s.conflict{color:var(--no)}.sync .s.dirty,.sync .s.syncing{color:var(--warn)}
 #foot{margin-top:1rem}
 #toast{position:fixed;left:50%;bottom:calc(1.2rem + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:3;display:flex;gap:.8rem;
   align-items:center;white-space:nowrap;background:var(--head);color:#fff;border-radius:10px;padding:.55rem .9rem;box-shadow:0 3px 12px rgba(0,0,0,.3)}
@@ -77,6 +91,7 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
   <p id="backup" class="warn" hidden></p>
 
   <div class="tiles" id="tiles"></div>
+  <div class="trend" id="trend"></div>
 
   <h2>History</h2>
   <div id="history"></div>
@@ -84,19 +99,33 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
   <div class="tools">
     <input type="date" id="addDate">
     <button class="btn" id="addDay" title="Add a 09:00–17:00 session on that day, then fix the times">+ Add day</button>
-    <button class="btn" id="export">Export JSON</button>
-    <label class="btn">Import JSON <input type="file" id="import" accept="application/json,.json" hidden></label>
-    <label class="btn" title="Hours per week. Each worked day is compared with a fifth of it">Target <input type="number" id="target" min="1" max="99" step="0.5"> h/wk</label>
-    <label class="btn" title="A day never ends later than this. A press after it clocks you out at this time">Day ends <input type="time" id="dayEnd"></label>
-    <button class="btn" id="badge" hidden title="Show a dot on the app icon while clocked in">● Badge on icon</button>
+    <button class="btn" id="markHalf" title="Half a day expected on that date (a half day of leave). Press again to unmark">Half day</button>
+    <button class="btn" id="markOff" title="Nothing expected on that date: any work on it is extra. Press again to unmark">Day off</button>
   </div>
-  <details class="sync" id="syncBox">
+  <details class="box">
+    <summary><span>⚙ Settings</span><span class="s" id="setState"></span></summary>
+    <div class="pad">
+      <label class="btn" title="Hours per week. Each worked day is compared with a fifth of it">Target <input type="number" id="target" min="1" max="99" step="0.5"> h/wk</label>
+      <label class="btn" title="A day never ends later than this. A press after it clocks you out at this time">Day ends <input type="time" id="dayEnd"></label>
+      <button class="btn" id="badge" hidden title="Show a dot on the app icon while clocked in">● Badge on icon</button>
+    </div>
+  </details>
+  <details class="box">
+    <summary><span>⇅ Export / import</span></summary>
+    <div class="pad">
+      <button class="btn" id="export">Export JSON</button>
+      <button class="btn" id="exportCsv">Export CSV</button>
+      <label class="btn">Import JSON <input type="file" id="import" accept="application/json,.json" hidden></label>
+      <p class="muted small" style="flex-basis:100%;margin:0">JSON holds everything: punches, settings, day marks. Import merges, it never wipes. CSV is one row per day, for a spreadsheet.</p>
+    </div>
+  </details>
+  <details class="box" id="syncBox">
     <summary><span>☁ GitHub backup</span><span class="s" id="syncState">Not connected</span></summary>
     <div class="pad" id="syncForm">
       <input id="syncRepo" placeholder="owner/private-repo" autocapitalize="none" autocorrect="off">
       <input id="syncToken" type="password" placeholder="github_pat_…" autocomplete="off">
       <button class="btn" id="syncConnect">Connect</button>
-      <p class="muted small" style="flex-basis:100%;margin:0">A private repo and a fine-grained token with <i>Contents: read and write</i> on that repo only. The log is pushed to <code>tiny-clock.json</code> after every punch and loaded back when this browser is empty.</p>
+      <p class="muted small" style="flex-basis:100%;margin:0">A private repo and a fine-grained token with <i>Contents: read and write</i> on that repo only. Punches, settings and day marks are pushed to <code>tiny-clock.json</code> after every change and loaded back when this browser is empty.</p>
     </div>
     <div class="pad" id="syncOn" hidden>
       <span id="syncRepoName" class="muted"></span>
@@ -113,7 +142,7 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
 <script src="js/sync.js"></script>
 <script>
 (function () {
-  var KEY = "tcm-events";
+  var KEY = "tcm-events", H = 3600000;
   var events = [];
   try { events = JSON.parse(localStorage.getItem(KEY) || "[]"); } catch (_) {}
   if (!Array.isArray(events)) events = [];
@@ -122,15 +151,32 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
   // Weekly target in hours; the daily target is a fifth of it.
   // ponytail: five-day week, fixed; add a days/week input if a 4-day week shows up.
   function target() { var h = parseFloat(localStorage.getItem("tcm-target")); return h > 0 ? h : 39; }
-  function dailyMs() { return target() * 3600000 / 5; }
+  function dailyMs() { return target() * H / 5; }
   // Latest clock-out of a day, "HH:MM" -> minutes since midnight.
   function endMin() { var p = (localStorage.getItem("tcm-end") || "").split(":"); return p.length === 2 ? +p[0] * 60 + +p[1] : TCM.END; }
   function endHHMM() { var m = endMin(); return TCM.hhmm(new Date(2000, 0, 1, 0, m)); }
+  // The balance counts from this day on (0 = all time).
+  function since() { return +localStorage.getItem("tcm-since") || 0; }
+  // Day marks {dayKey: "off"|"half"}.
+  function marks() { try { return TCMSync.cleanExtra({ days: JSON.parse(localStorage.getItem("tcm-days") || "{}") }).days; } catch (_) { return {}; } }
+  // Everything that travels with the punches: settings and day marks.
+  function getExtra() { return { settings: { target: target(), end: endHHMM(), since: since() }, days: marks() }; }
+  function setExtra(x) {
+    var s = x.settings || {};
+    if (s.target) localStorage.setItem("tcm-target", s.target);
+    if (s.end) localStorage.setItem("tcm-end", s.end);
+    if (s.since != null) { if (s.since) localStorage.setItem("tcm-since", s.since); else localStorage.removeItem("tcm-since"); }
+    localStorage.setItem("tcm-days", JSON.stringify(x.days || {}));
+    $("target").value = target(); $("dayEnd").value = endHHMM();
+    render();
+  }
   function persist() { localStorage.setItem(KEY, JSON.stringify(events)); render(); }
   function save() { persist(); sync.changed(); }
   var sync = TCMSync.create({
     getEvents: function () { return events; },
     setEvents: function (list) { events = list; persist(); },
+    getExtra: getExtra,
+    setExtra: setExtra,
     onStatus: function (kind, text) {
       if (kind === "error" || kind === "conflict") lastErr = text; else if (kind === "ok" || kind === "off") lastErr = "";
       var el = $("syncState"); el.textContent = text; el.className = "s " + kind;
@@ -155,6 +201,7 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
   function $(id) { return document.getElementById(id); }
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
   function dateLabel(t, opts) { return new Date(t).toLocaleDateString(undefined, opts || { weekday: "short", day: "numeric", month: "short" }); }
+  function shortDate(t) { return dateLabel(t, { day: "numeric", month: "short" }); }
   // "2026-10-01" + "08:30" -> epoch ms, local time (DST-safe via the Date constructor).
   function at(dayKey, hhmm) {
     var d = dayKey.split("-"), h = hhmm.split(":");
@@ -165,9 +212,10 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
 
   function render() {
     var now = Date.now(), today = TCM.dayKey(now);
-    var days = TCM.days(events, now), weeks = TCM.weeks(days);
+    var days = TCM.days(events, now, marks()), weeks = TCM.weeks(days);
     var inNow = TCM.clockedIn(events, now), next = TCM.punch(events, now, endMin()), nextOut = next[next.length - 1].k === "out";
-    var todayD = days[0] && days[0].key === today ? days[0] : null, daily = dailyMs();
+    // A marked day can sit in the future, so today is looked up, not days[0].
+    var todayD = days.filter(function (d) { return d.key === today; })[0] || null, daily = dailyMs();
 
     // --- punch button + status line
     var b = $("punch");
@@ -179,7 +227,7 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
       st = "Clocked in since " + TCM.hhmm(open.start) + " · today " + TCM.fmt(todayD.ms) +
         (left > 0 ? " · leave at " + TCM.hhmm(now + left) : " · " + TCM.sfmt(-left) + " over target");
       if (next[0].t !== now) st += '<br><span class="warn">Past ' + TCM.hhmm(next[0].t) + ": this button clocks you out at " + TCM.hhmm(next[0].t) + "</span>";
-    } else if (todayD) st = "Clocked out · today " + TCM.fmt(todayD.ms) + " · " + (left > 0 ? TCM.fmt(left) + " to go" : TCM.sfmt(-left) + " over target");
+    } else if (todayD && todayD.ms) st = "Clocked out · today " + TCM.fmt(todayD.ms) + " · " + (left > 0 ? TCM.fmt(left) + " to go" : TCM.sfmt(-left) + " over target");
     else if (next.length > 1) st = "Nothing punched today · this button records a typical day: 09:00–12:00, 14:00–" + (next[3].t === now ? "now" : TCM.hhmm(next[3].t));
     else st = "Not clocked in yet today";
     var stale = days.filter(function (d) { return d.stale; })[0];
@@ -187,20 +235,36 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
     $("status").innerHTML = st;
 
     // --- stat tiles
-    var thisWeek = weeks[0] && weeks[0].start === TCM.weekStart(now) ? weeks[0] : null;
+    var byStart = {}; weeks.forEach(function (w) { byStart[w.start] = w; });
+    var thisWeek = byStart[TCM.weekStart(now)] || null;
     var past = weeks.filter(function (w) { return w.start < TCM.weekStart(now); }).slice(0, 4);
     var pastMs = 0, pastDays = 0;
     past.forEach(function (w) { pastMs += w.ms; pastDays += w.days.filter(function (d) { return d.ms > 0; }).length; });
+    var from = since(), bdays = days.filter(function (d) { return d.start >= from; });
     var allMs = 0, allDays = 0;
-    days.forEach(function (d) { allMs += d.ms; if (d.ms > 0) allDays++; });
+    bdays.forEach(function (d) { allMs += d.ms; if (d.ms > 0) allDays++; });
     var wd = thisWeek ? thisWeek.days.filter(function (d) { return d.ms > 0; }).length : 0;
-    var wDelta = TCM.delta(thisWeek ? thisWeek.days : [], daily, now), balance = TCM.delta(days, daily, now);
+    var wDelta = TCM.delta(thisWeek ? thisWeek.days : [], daily, now), balance = TCM.delta(bdays, daily, now);
     $("tiles").innerHTML = [
       tile("Today", todayD ? TCM.fmt(todayD.ms) : "0h00", todayD && todayD.breaks ? "break " + TCM.fmt(todayD.breaks) : ""),
       tile("This week", thisWeek ? TCM.fmt(thisWeek.ms) : "0h00", wd + " day" + (wd === 1 ? "" : "s") + (wDelta.n ? " · " + TCM.sfmt(wDelta.ms) + " vs target" : "")),
       tile("Last " + past.length + " week" + (past.length === 1 ? "" : "s"), avg(pastMs, past.length) + "/wk", "avg " + avg(pastMs, pastDays) + "/day"),
-      tile("Balance", TCM.sfmt(balance.ms), allDays + " day" + (allDays === 1 ? "" : "s") + " · avg " + avg(allMs, allDays) + " vs " + TCM.fmt(daily))
+      tile("Balance", TCM.sfmt(balance.ms), (from ? "since " + shortDate(from) : "all time") + " · " + allDays + " day" + (allDays === 1 ? "" : "s") + " · avg " + avg(allMs, allDays) + " vs " + TCM.fmt(daily),
+        ' data-since title="Tap to count the balance from today on, or back to all time"')
     ].join("");
+    $("setState").textContent = target() + " h/wk · ends " + endHHMM();
+
+    // --- the last 12 weeks as bars, the weekly target as a dashed line
+    var cols = [], ws0 = TCM.weekStart(now);
+    for (var i = 11; i >= 0; i--) { var s = TCM.weekStart(ws0 - i * 7 * TCM.DAY + 3 * TCM.DAY); cols.push(byStart[s] || { start: s, ms: 0, days: [] }); }
+    var top = cols.reduce(function (m, w) { return Math.max(m, w.ms); }, target() * H), y = function (ms) { return 44 - ms / top * 40; };
+    $("trend").innerHTML = '<div class="k">Last 12 weeks · dashed line ' + target() + 'h</div><svg viewBox="0 0 240 46">' +
+      cols.map(function (w, i) {
+        var dl = TCM.delta(w.days, daily, now);
+        return '<rect' + (w.start === ws0 ? ' class="now"' : "") + ' x="' + (i * 20 + 3) + '" y="' + y(w.ms).toFixed(1) + '" width="14" height="' + (44 - y(w.ms)).toFixed(1) + '"><title>' +
+          esc(shortDate(w.start) + " – " + shortDate(w.start + 6 * TCM.DAY) + " · " + TCM.fmt(w.ms) + (dl.n ? " · " + TCM.sfmt(dl.ms) + " vs target" : "")) + "</title></rect>";
+      }).join("") +
+      '<line class="target" x1="0" x2="240" y1="' + y(target() * H).toFixed(1) + '" y2="' + y(target() * H).toFixed(1) + '"/><line x1="0" x2="240" y1="44.5" y2="44.5"/></svg>';
 
     // --- dot on the app icon (and tab title) while clocked in. Installed app
     // only; iOS and Android draw it once notifications are allowed.
@@ -213,26 +277,37 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
     document.querySelectorAll("#history details[open]").forEach(function (d) { opened[d.dataset.w] = 1; });
     var first = !Object.keys(opened).length;
     $("history").innerHTML = weeks.map(function (w, i) {
-      var n = w.days.filter(function (d) { return d.ms > 0; }).length;
+      var n = w.days.filter(function (d) { return d.ms > 0; }).length, dl = TCM.delta(w.days, daily, now);
       var isOpen = first ? i === 0 : opened[w.start];
       return '<details data-w="' + w.start + '"' + (isOpen ? " open" : "") + "><summary><span>" +
-        esc(dateLabel(w.start, { day: "numeric", month: "short" })) + " – " + esc(dateLabel(w.start + 6 * TCM.DAY, { day: "numeric", month: "short" })) +
-        '</span><span class="s">' + TCM.fmt(w.ms) + " · " + n + "d · " + avg(w.ms, n) + "/d</span></summary>" +
+        esc(shortDate(w.start)) + " – " + esc(shortDate(w.start + 6 * TCM.DAY)) +
+        '</span><span class="s">' + TCM.fmt(w.ms) + " · " + n + "d" + (dl.n ? " · " + TCM.sfmt(dl.ms) : "") + "</span></summary>" +
         w.days.map(dayHtml).join("") + "</details>";
     }).join("") || '<p class="muted">Nothing yet. Press the button.</p>';
     foot();
   }
-  function tile(k, v, s) { return '<div class="tile"><div class="k">' + esc(k) + '</div><div class="v">' + esc(v) + '</div><div class="s">' + esc(s) + "</div></div>"; }
+  function tile(k, v, s, attr) { return '<div class="tile"' + (attr || "") + '><div class="k">' + esc(k) + '</div><div class="v">' + esc(v) + '</div><div class="s">' + esc(s) + "</div></div>"; }
   // The typical lunch of that day, as epoch ms: [out, back in].
   function lunch(day) { return [at(day, TCM.LUNCH_OUT + ":00"), at(day, TCM.LUNCH_IN + ":00")]; }
   function dayHtml(d) {
-    var l = lunch(d.key);
+    var l = lunch(d.key), now = Date.now();
     // ponytail: six hours straight with no break is nearly always a forgotten lunch.
-    var noBreak = !d.breaks && d.ms > 6 * 3600000;
+    var noBreak = !d.breaks && d.ms > 6 * H;
+    // The shape of the day: a 06:00-20:00 strip, one block per session, a
+    // tick at the day-end cap. ponytail: fixed window, anything outside it
+    // is clamped to the edge.
+    var w0 = d.start + 6 * H, pct = function (t) { return Math.max(0, Math.min(100, (t - w0) / (14 * H) * 100)); };
+    var bar = d.sessions.map(function (s) {
+      if (s.orphan) return '<i class="orphan" style="left:' + pct(s.end).toFixed(1) + '%;width:2px"></i>';
+      var end = s.end != null ? s.end : s.stale ? w0 + 14 * H : now, a = pct(s.start), b = pct(end);
+      return '<i' + (s.stale ? ' class="stale"' : s.open ? ' class="open"' : "") + ' style="left:' + a.toFixed(1) + '%;width:' + Math.max(0.5, b - a).toFixed(1) + '%"></i>';
+    }).join("") + '<b style="left:' + pct(d.start + endMin() * 60000).toFixed(1) + '%"></b>';
     return '<div class="day' + (d.stale ? " stale" : "") + '"><div class="dayhead"><b>' + esc(dateLabel(d.start)) + '</b><span class="muted">' +
-      TCM.fmt(d.ms) + (d.breaks ? " · break " + TCM.fmt(d.breaks) : noBreak ? ' · <span class="warn">no break?</span>' : "") + "</span></div>" +
+      TCM.fmt(d.ms) + (d.breaks ? " · break " + TCM.fmt(d.breaks) : noBreak ? ' · <span class="warn">no break?</span>' : "") +
+      (d.mark ? ' · <span class="mark">' + (d.mark === "half" ? "half day" : "day off") + "</span>" : "") + "</span></div>" +
+      '<div class="bar">' + bar + "</div>" +
       d.sessions.map(function (s) {
-        var spansLunch = s.start != null && s.start < l[0] && (s.end == null ? Date.now() : s.end) > l[1];
+        var spansLunch = s.start != null && s.start < l[0] && (s.end == null ? now : s.end) > l[1];
         return '<div class="sess">' + timeInput(d.key, "in", s.start) + " → " + timeInput(d.key, "out", s.end) +
           '<span class="d">' + (s.open && !s.stale ? "running" : s.stale ? "⚠ open" : s.orphan ? "no clock-in" : TCM.fmt(s.ms)) + "</span>" +
           (spansLunch ? '<button class="x" title="Split for lunch: out at ' + TCM.hhmm(l[0]) + ", back at " + TCM.hhmm(l[1]) + ', then fix the times" data-split="' + d.key + '">✂</button>' : "") +
@@ -286,10 +361,17 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
     });
     save();
   });
+  // The balance tile: count from today on, or back to all time.
+  $("tiles").addEventListener("click", function (e) {
+    if (!e.target.closest("[data-since]")) return;
+    if (!confirm(since() ? "Count the balance over all time again?" : "Count the balance from today on? Earlier days stay in the history.")) return;
+    if (since()) localStorage.removeItem("tcm-since"); else localStorage.setItem("tcm-since", TCM.dayStart(Date.now()));
+    save();
+  });
   $("target").value = target();
-  $("target").onchange = function () { localStorage.setItem("tcm-target", this.value); render(); };
+  $("target").onchange = function () { localStorage.setItem("tcm-target", this.value); save(); };
   $("dayEnd").value = endHHMM();
-  $("dayEnd").onchange = function () { if (this.value) localStorage.setItem("tcm-end", this.value); else localStorage.removeItem("tcm-end"); render(); };
+  $("dayEnd").onchange = function () { if (this.value) localStorage.setItem("tcm-end", this.value); else localStorage.removeItem("tcm-end"); save(); };
   $("badge").onclick = function () { Notification.requestPermission().then(render, render); };
   $("addDate").value = TCM.dayKey(Date.now());
   $("addDay").onclick = function () {
@@ -298,26 +380,50 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
     events.push({ k: "in", t: at(day, "09:00") }, { k: "out", t: at(day, "17:00") });
     save();
   };
-  $("export").onclick = function () {
+  // Mark the chosen date; the same mark again removes it.
+  function mark(kind) {
+    var day = $("addDate").value;
+    if (!day) return;
+    var m = marks();
+    if (m[day] === kind) delete m[day]; else m[day] = kind;
+    localStorage.setItem("tcm-days", JSON.stringify(m));
+    save();
+  }
+  $("markHalf").onclick = function () { mark("half"); };
+  $("markOff").onclick = function () { mark("off"); };
+  function download(text, type, ext) {
     var a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([JSON.stringify(events, null, 1)], { type: "application/json" }));
-    a.download = "tiny-clock-" + TCM.dayKey(Date.now()) + ".json";
+    a.href = URL.createObjectURL(new Blob([text], { type: type }));
+    a.download = "tiny-clock-" + TCM.dayKey(Date.now()) + "." + ext;
     a.click();
     URL.revokeObjectURL(a.href);
     localStorage.setItem("tcm-exported", Date.now()); foot();
+  }
+  $("export").onclick = function () {
+    var x = getExtra();
+    download(JSON.stringify({ events: events, settings: x.settings, days: x.days }, null, 1), "application/json", "json");
+  };
+  // One row per day, hours as decimals so a spreadsheet can sum them.
+  $("exportCsv").onclick = function () {
+    var now = Date.now(), h = function (ms) { return (ms / H).toFixed(2); };
+    var rows = TCM.days(events, now, marks()).reverse().map(function (d) {
+      var f = d.sessions[0], l = d.sessions[d.sessions.length - 1], dl = TCM.delta([d], dailyMs(), now);
+      return [d.key, d.mark || "", f && f.start != null ? TCM.hhmm(f.start) : "", l && l.end != null ? TCM.hhmm(l.end) : "",
+        h(d.breaks), h(d.ms), dl.n ? h(dl.ms) : ""].join(",");
+    });
+    download(["date,mark,first_in,last_out,break_h,worked_h,vs_target_h"].concat(rows).join("\n"), "text/csv", "csv");
   };
   $("import").onchange = function () {
     var f = this.files[0]; this.value = "";
     if (!f) return;
     f.text().then(function (txt) {
-      var data = JSON.parse(txt);
-      if (!Array.isArray(data)) throw new Error("not an array");
-      var seen = {}, merged = [];
-      events.concat(data).forEach(function (e) {
+      var doc = TCMSync.parse(txt), seen = {}, merged = [];
+      events.concat(doc.events).forEach(function (e) {
         if (!e || (e.k !== "in" && e.k !== "out") || typeof e.t !== "number" || !isFinite(e.t)) throw new Error("bad event");
         if (!seen[e.k + e.t]) { seen[e.k + e.t] = 1; merged.push({ k: e.k, t: e.t }); }
       });
       events = merged;
+      setExtra(TCMSync.mergeExtra(getExtra(), doc.extra));
       save();
     }).catch(function (err) { alert("Import failed: " + err.message); });
   };

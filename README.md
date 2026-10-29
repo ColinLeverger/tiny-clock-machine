@@ -39,7 +39,7 @@ On a phone: open the Pages URL, **Add to Home Screen**. That is the PWA.
   when you can **leave** to meet the daily target. Forgot the whole day? The
   first press after **14:00** (device local time) records a typical day —
   09:00–12:00, 14:00–now — so that press is your evening clock-out. A day
-  never ends after the **Day ends** time (bottom of the page, 18:30 by
+  never ends after the **Day ends** time (in *⚙ Settings*, 18:30 by
   default): a press at 20:40 clocks you out at 18:30, a forgotten clock-out
   is not two extra hours. Fix the times in the history if they were off.
   Every press shows what it recorded for a few seconds, with an **Undo**
@@ -47,26 +47,42 @@ On a phone: open the Pages URL, **Add to Home Screen**. That is the PWA.
 - **Tiles** — today (with the break length), this week (with its ± against
   the target), average of the last four full weeks, and the **balance**:
   hours worked minus the target, summed over every closed day with work.
-  "Day" means a day with at least one closed session.
-- **Target** — hours per week, bottom of the page (default 39). A fifth of it
+  "Day" means a day with at least one closed session. Tap the balance tile
+  to count it from today on, and again to go back to all time: an all-time
+  balance stops meaning anything after a year.
+- **Trend** — the last twelve weeks as bars, the weekly target as a dashed
+  line, the running week lighter. Hover or long-press a bar for its numbers.
+- **Target** — hours per week, in *⚙ Settings* (default 39). A fifth of it
   is the daily target behind *leave at*, the week's ± and the balance. Today
   is left out of the balance while it runs. A day without work costs
   nothing, so holidays and sick days need no bookkeeping — the balance
   answers "do I work more than a normal day on the days I work", not "how
   many days off have I banked".
-- **● Badge on icon** — a dot on the home-screen icon (and in the tab title)
+- **Half day / Day off** — pick a date, press one of them (again to unmark).
+  A *half day* expects half the daily target, so four hours on it count
+  +0h06 instead of −3h48, and it counts even with no work: the other half
+  was due. A *day off* expects nothing, so any work on it is all extra. A
+  marked day shows in the history even without punches.
+- **● Badge on icon** (in *⚙ Settings*) — a dot on the home-screen icon (and in the tab title)
   while you are clocked in, so a glance at the phone at 21:00 says you
   forgot. Installed app only; iOS and Android draw it once you allow
   notifications, which is all that button asks.
 - **History** — one block per week (Monday start), one row per session.
+  Each day has a bar from 06:00 to 20:00, one block per session: a long
+  single block is a forgotten lunch, hatched is still open, the thin tick is
+  the day-end cap.
   Every time is an `<input type="time">`: tap it to correct a punch. `×`
   deletes a session. A session that runs through lunch has a `✂`: it clocks
   you out at 12:00 and back in at 14:00, then fix the times. A day of six
   hours or more with no break is flagged *no break?*, since that is nearly
   always a forgotten lunch. **+ Add day** inserts a 09:00–17:00 session on
   the chosen date for days you forgot entirely, then fix the times.
-- **Export / Import JSON** — the whole log as `[{ "k": "in"|"out", "t": ms }]`.
-  Import merges and de-duplicates, it never wipes what is already there.
+- **⇅ Export / import** — JSON is everything: `{ "events": [{ "k": "in"|"out",
+  "t": ms }], "settings": { "target", "end", "since" }, "days": { "YYYY-MM-DD":
+  "off"|"half" } }`. Import merges and de-duplicates, it never wipes what is
+  already there; an older export that is a bare list still imports. CSV is
+  one row per day (date, mark, first in, last out, break, worked, vs target)
+  with hours as decimals, for a spreadsheet.
 - **☁ GitHub backup** — see below. The footer tells you how many punches the
   browser holds, whether they are backed up, and when you last exported.
 
@@ -101,8 +117,9 @@ takes it the next time it comes to the front.
 
 Browser storage is a strong default, not a guarantee: deleting the
 home-screen icon, replacing the phone, or clearing Safari data loses it. The
-backup pushes the log to one file in a **private** repository you own, using
-the GitHub Contents API, after every punch.
+backup pushes the log, the settings and the day marks to one file in a
+**private** repository you own, using the GitHub Contents API, after every
+change.
 
 1. Create a private repository (initialise it with a README so `main` exists).
 2. Create a [fine-grained personal access token](https://github.com/settings/personal-access-tokens/new)
@@ -114,7 +131,7 @@ the GitHub Contents API, after every punch.
    token, **Connect**. If the repo already has a `tiny-clock.json` the two
    copies are merged.
 
-From then on each punch is pushed two seconds later (or when the app goes to
+From then on each change is pushed two seconds later (or when the app goes to
 the background) as a commit to `tiny-clock.json`. A fresh browser with the
 same repo and token **loads the file back on start**. A browser with nothing
 unsaved checks GitHub whenever it comes to the front and takes the newer
@@ -124,7 +141,9 @@ the two copies are merged three ways against the copy this device last
 pushed: punches added on either side are kept, a punch deleted or moved on
 one side stays deleted or moved, and the merge is pushed. If both devices
 moved the same punch, both times are kept and the extra one shows up as an
-open or orphan row to fix by hand. **⬆ Push** (overwrite GitHub with this
+open or orphan row to fix by hand. Settings and day marks have no history:
+on a refused push this device's values win per key, otherwise the copy taken
+from GitHub wins. **⬆ Push** (overwrite GitHub with this
 device) and **⬇ Pull** (replace this device with GitHub) stay for the rare
 case where the retry is refused too. When a push has been failing for a
 day, or never worked, a warning appears under the button with GitHub's

@@ -56,11 +56,14 @@ var TCM = (function () {
 
   // Group sessions by the day they started (an orphan "out" by its own day).
   // Newest day first. breaks = gaps between consecutive closed sessions.
-  function days(events, now) {
+  // marks: {dayKey: "off"|"half"}; a marked day exists even without punches,
+  // so it shows in the history and counts in the balance.
+  function fromKey(k) { var p = k.split("-"); return new Date(+p[0], p[1] - 1, +p[2]).getTime(); }
+  function days(events, now, marks) {
     var byDay = {};
+    function day(key, t) { return byDay[key] || (byDay[key] = { key: key, start: dayStart(t), sessions: [], ms: 0, breaks: 0, open: false, stale: false }); }
     sessions(events, now).forEach(function (s) {
-      var key = dayKey(s.start != null ? s.start : s.end);
-      var d = byDay[key] || (byDay[key] = { key: key, start: dayStart(s.start != null ? s.start : s.end), sessions: [], ms: 0, breaks: 0, open: false, stale: false });
+      var t = s.start != null ? s.start : s.end, d = day(dayKey(t), t);
       var prev = d.sessions[d.sessions.length - 1];
       if (prev && prev.end != null && s.start != null && s.start > prev.end) d.breaks += s.start - prev.end;
       d.sessions.push(s);
@@ -68,6 +71,7 @@ var TCM = (function () {
       d.open = d.open || s.open;
       d.stale = d.stale || s.stale;
     });
+    Object.keys(marks || {}).forEach(function (k) { day(k, fromKey(k)).mark = marks[k]; });
     return Object.keys(byDay).sort().reverse().map(function (k) { return byDay[k]; });
   }
 
@@ -86,11 +90,16 @@ var TCM = (function () {
   // Worked time minus a daily target, summed over closed days with work.
   // Today is left out while it runs (its progress is the "leave at" hint).
   // A day without work costs nothing: holidays, leave and sick days need no
-  // bookkeeping. ponytail: if a day off should consume banked hours instead,
-  // add leave entries.
+  // bookkeeping. A day marked "half" expects half the target, and counts even
+  // with no work since the other half was due; a day marked "off" expects
+  // nothing, so any work on it is all extra.
   function delta(dayList, dailyMs, now) {
     var today = dayKey(now), ms = 0, n = 0;
-    dayList.forEach(function (d) { if (d.ms > 0 && d.key !== today) { ms += d.ms - dailyMs; n++; } });
+    dayList.forEach(function (d) {
+      if (d.key === today) return;
+      var want = d.mark === "off" ? 0 : d.mark === "half" ? dailyMs / 2 : dailyMs;
+      if (d.ms > 0 || d.mark === "half") { ms += d.ms - want; n++; }
+    });
     return { ms: ms, n: n };
   }
 

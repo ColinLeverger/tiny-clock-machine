@@ -1,8 +1,9 @@
 /* sync.js — GitHub Contents API backup of the punch log.
- * One JSON file in a private repo. Pushed after every change (with the file
- * sha, so two devices cannot silently overwrite each other), pulled back when
- * this browser has nothing. First connect merges both copies; a refused push
- * (another device wrote in between) is merged three ways and retried. */
+ * One JSON file in a private repo: {events, settings, days} (an older file
+ * that is a bare punch list still loads). Pushed after every change with the
+ * file sha, so two devices cannot silently overwrite each other; pulled back
+ * when this browser has nothing. First connect merges both copies; a refused
+ * push (another device wrote in between) is merged three ways and retried. */
 var TCMSync = (function (root) {
   var KEY = "tcm-sync", PATH = "tiny-clock.json";
   // ponytail: branch is always main; add an input if a repo ever needs another.
@@ -29,13 +30,39 @@ var TCMSync = (function (root) {
     var kept = remote.filter(function (e) { return !(inBase[e.k + e.t] && !inLocal[e.k + e.t]); });
     return union(kept, local.filter(function (e) { return !inBase[e.k + e.t]; }));
   }
+  // What travels with the punches: settings {target, end, since} and day
+  // marks {dayKey: "off"|"half"}. Anything odd is dropped.
+  function cleanExtra(x) {
+    x = x || {};
+    var s = x.settings || {}, d = x.days || {}, out = { settings: {}, days: {} };
+    if (s.target > 0) out.settings.target = +s.target;
+    if (/^\d\d:\d\d$/.test(s.end)) out.settings.end = s.end;
+    if (s.since >= 0) out.settings.since = +s.since;
+    Object.keys(d).forEach(function (k) { if (/^\d{4}-\d\d-\d\d$/.test(k) && (d[k] === "off" || d[k] === "half")) out.days[k] = d[k]; });
+    return out;
+  }
+  // Per key, b wins. ponytail: no history for settings and marks, so a mark
+  // removed on one device while the other had unsaved changes comes back.
+  function mergeExtra(a, b) {
+    return { settings: Object.assign({}, a.settings, b.settings), days: Object.assign({}, a.days, b.days) };
+  }
+  // The file: {events, settings, days}, or a bare punch list from before.
+  function parse(json) {
+    var x = JSON.parse(json);
+    if (Array.isArray(x)) return { events: x, extra: cleanExtra() };
+    if (!x || !Array.isArray(x.events)) throw new Error("not a punch log");
+    return { events: x.events, extra: cleanExtra(x) };
+  }
+  function serialize(events, extra) { return JSON.stringify({ events: events, settings: extra.settings, days: extra.days }); }
 
-  // opts: getEvents() -> list, setEvents(list) (persist without re-syncing), onStatus(kind, text)
+  // opts: getEvents() -> list, setEvents(list) (persist without re-syncing),
+  //       getExtra() -> {settings, days}, setExtra(extra), onStatus(kind, text)
   function create(opts) {
     var cfg = load(), timer = null, busy = false, rev = 0;
     function save() { if (cfg) root.localStorage.setItem(KEY, JSON.stringify(cfg)); else root.localStorage.removeItem(KEY); }
     function status(kind, text) { opts.onStatus(kind, text); }
     function when(t) { return new Date(t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); }
+    function extra() { return cleanExtra(opts.getExtra()); }
 
     async function api(method, body, keepalive) {
       var url = "https://api.github.com/repos/" + cfg.repo + "/contents/" + PATH + (method === "GET" ? "?ref=" + BRANCH : "");
@@ -50,9 +77,8 @@ var TCMSync = (function (root) {
     async function remote() {
       var f = await api("GET");
       if (!f) return null;
-      var ev = JSON.parse(atob(f.content.replace(/\s/g, "")));
-      if (!Array.isArray(ev)) throw new Error(PATH + " on GitHub is not a punch list");
-      return { sha: f.sha, events: ev };
+      var doc = parse(atob(f.content.replace(/\s/g, "")));
+      return { sha: f.sha, events: doc.events, extra: doc.extra };
     }
     function conflict(e) { return e.status === 409 || e.status === 422; }
     function fail(e) {
@@ -63,10 +89,16 @@ var TCMSync = (function (root) {
     function acked(sha, list) { cfg.sha = sha; cfg.base = union(list, []); cfg.at = Date.now(); save(); }
     async function put(sha, keepalive) {
       var list = union(opts.getEvents(), []);
-      var body = { message: "Punch log", content: btoa(JSON.stringify(list)), branch: BRANCH };
+      var body = { message: "Punch log", content: btoa(serialize(list, extra())), branch: BRANCH };
       if (sha) body.sha = sha;
       var res = await api("PUT", body, keepalive);
       acked(res.content.sha, list);
+    }
+    function take(r) {
+      var list = union(r.events, []);
+      opts.setEvents(list);
+      opts.setExtra(r.extra);
+      acked(r.sha, list);
     }
 
     async function push(force, keepalive) {
@@ -83,6 +115,7 @@ var TCMSync = (function (root) {
           // real race and lands in fail(), where ⬆ / ⬇ settle it by hand.
           r = await remote();
           opts.setEvents(merge(cfg.base || [], opts.getEvents(), r ? r.events : []));
+          opts.setExtra(mergeExtra(r ? r.extra : cleanExtra(), extra()));
           await put(r && r.sha, keepalive);
         }
         // A punch made while the PUT was in flight is not in what GitHub got.
@@ -98,30 +131,24 @@ var TCMSync = (function (root) {
       try {
         var r = await remote();
         if (!r) { status("error", "No " + PATH + " on GitHub yet, push first"); return; }
-        var list = union(r.events, []);
-        opts.setEvents(list);
-        cfg.dirty = false; acked(r.sha, list);
+        cfg.dirty = false; take(r);
         status("ok", "Loaded from GitHub " + when(cfg.at));
       } catch (e) { fail(e); }
       finally { busy = false; }
     }
-    // Local is clean and GitHub moved on (another device punched): take it.
+    // Local is clean and GitHub moved on (another device wrote): take it.
     // Nothing local can be lost, everything here was already acknowledged.
     async function refresh() {
       if (!cfg || busy || cfg.dirty) return;
       busy = true;
       try {
         var r = await remote();
-        if (r && r.sha !== cfg.sha) {
-          var list = union(r.events, []);
-          opts.setEvents(list);
-          acked(r.sha, list);
-          status("ok", "Loaded from GitHub " + when(cfg.at));
-        }
+        if (r && r.sha !== cfg.sha) { take(r); status("ok", "Loaded from GitHub " + when(cfg.at)); }
       } catch (e) { fail(e); }
       finally { busy = false; }
     }
-    // First connection: merge both copies, then push the result.
+    // First connection: merge both copies (GitHub's settings and marks win,
+    // the usual case being a new device with defaults), then push the result.
     async function connect(repo, token) {
       repo = (repo || "").trim(); token = (token || "").trim();
       if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) throw new Error("Repository must be owner/name");
@@ -131,7 +158,11 @@ var TCMSync = (function (root) {
       var r;
       try { r = await remote(); } catch (e) { cfg = null; save(); fail(e); throw e; }
       finally { busy = false; }
-      if (r) { opts.setEvents(union(opts.getEvents(), r.events)); cfg.sha = r.sha; cfg.base = union(r.events, []); save(); }
+      if (r) {
+        opts.setEvents(union(opts.getEvents(), r.events));
+        opts.setExtra(mergeExtra(extra(), r.extra));
+        cfg.sha = r.sha; cfg.base = union(r.events, []); save();
+      }
       return push(false);
     }
     function disconnect() { clearTimeout(timer); cfg = null; save(); status("off", "Not connected"); }
@@ -154,6 +185,6 @@ var TCMSync = (function (root) {
     return { config: function () { return cfg; }, connect: connect, disconnect: disconnect, changed: changed,
       push: push, pull: pull, flush: flush, start: start };
   }
-  return { create: create, union: union, merge: merge, PATH: PATH };
+  return { create: create, union: union, merge: merge, cleanExtra: cleanExtra, mergeExtra: mergeExtra, parse: parse, serialize: serialize, PATH: PATH };
 })(typeof window !== "undefined" ? window : globalThis);
 if (typeof module !== "undefined") module.exports = TCMSync;

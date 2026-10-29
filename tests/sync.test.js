@@ -17,8 +17,8 @@ globalThis.fetch = async (url, init) => {
 };
 const TCMSync = require("../js/sync.js");
 
-let events = [{ k: "in", t: 1000 }], statuses = [];
-const sync = TCMSync.create({ getEvents: () => events, setEvents: l => { events = l; }, onStatus: (k, t) => statuses.push(k) });
+let events = [{ k: "in", t: 1000 }], statuses = [], extra = { settings: {}, days: {} };
+const sync = TCMSync.create({ getEvents: () => events, setEvents: l => { events = l; }, getExtra: () => extra, setExtra: x => { extra = x; }, onStatus: (k, t) => statuses.push(k) });
 
 (async () => {
   await assert.rejects(sync.connect("bad repo", "tok"), /owner\/name/);
@@ -49,7 +49,7 @@ const sync = TCMSync.create({ getEvents: () => events, setEvents: l => { events 
   // force push re-reads the sha first
   await sync.push(true);
   assert.deepEqual(calls.slice(-2).map(c => c.split(":")[0]), ["GET", "PUT"]);
-  assert.equal(JSON.parse(atob(remoteFile.content)).length, 4);
+  assert.equal(JSON.parse(atob(remoteFile.content)).events.length, 4);
 
   // empty browser pulls on start
   events = [];
@@ -92,7 +92,7 @@ const sync = TCMSync.create({ getEvents: () => events, setEvents: l => { events 
   await sync.push(false);
   const merged = [1000, 3000, 4000, 5000, 5500, 7000, 6300];
   assert.deepEqual(events.map(e => e.t), merged);
-  assert.deepEqual(JSON.parse(atob(remoteFile.content)).map(e => e.t), merged);
+  assert.deepEqual(JSON.parse(atob(remoteFile.content)).events.map(e => e.t), merged);
   assert.deepEqual(calls.slice(-3).map(c => c.split(":")[0]), ["PUT", "GET", "PUT"]);
   assert.equal(calls.at(-1), "PUT:theirs", "retry carries the sha GitHub has now");
   assert.equal(statuses.pop(), "ok");
@@ -104,10 +104,33 @@ const sync = TCMSync.create({ getEvents: () => events, setEvents: l => { events 
   duringPut = () => { events.push({ k: "in", t: 8000 }); sync.changed(); };
   await sync.push(false);
   assert.ok(sync.config().dirty, "change during flight -> still dirty");
-  assert.equal(JSON.parse(atob(remoteFile.content)).length, 7);
+  assert.equal(JSON.parse(atob(remoteFile.content)).events.length, 7);
   await sync.push(false);
   assert.ok(!sync.config().dirty);
-  assert.equal(JSON.parse(atob(remoteFile.content)).length, 8);
+  assert.equal(JSON.parse(atob(remoteFile.content)).events.length, 8);
+
+  // settings and day marks travel in the file: pushed with the punches, taken
+  // from GitHub when this browser is clean, merged per key on a refused push.
+  extra = { settings: { target: 37.5, end: "18:00", since: 0 }, days: { "2026-10-05": "half" } }; sync.changed();
+  await sync.push(false);
+  const file = JSON.parse(atob(remoteFile.content));
+  assert.deepEqual(file.settings, extra.settings); assert.deepEqual(file.days, extra.days);
+  // the other device set 35h and marked Oct 6 off; this one kept 37.5 and marked Oct 7 off
+  remoteFile = { sha: "theirs2", content: btoa(JSON.stringify({ events: file.events, settings: { target: 35, end: "18:00", since: 0 }, days: { "2026-10-05": "half", "2026-10-06": "off" } })) };
+  extra = { settings: { target: 37.5, end: "18:00", since: 0 }, days: { "2026-10-05": "half", "2026-10-07": "off" } }; sync.changed();
+  failPuts = 1;
+  await sync.push(false);
+  assert.deepEqual(extra.days, { "2026-10-05": "half", "2026-10-06": "off", "2026-10-07": "off" }, "marks merge per key");
+  assert.equal(extra.settings.target, 37.5, "local settings win a refused push");
+  assert.deepEqual(JSON.parse(atob(remoteFile.content)).days, extra.days);
+  // a clean browser takes the GitHub copy, settings and marks included
+  remoteFile = { sha: "theirs3", content: btoa(JSON.stringify({ events: file.events, settings: { target: 40, end: "17:30", since: 0 }, days: {} })) };
+  await sync.start();
+  assert.equal(extra.settings.target, 40); assert.deepEqual(extra.days, {});
+  // junk in the file is dropped, a bare list still parses
+  assert.deepEqual(TCMSync.parse(JSON.stringify({ events: [], settings: { target: -1, end: "25h" }, days: { "nope": "off", "2026-10-08": "sick" } })).extra, { settings: {}, days: {} });
+  assert.deepEqual(TCMSync.parse("[]"), { events: [], extra: { settings: {}, days: {} } });
+  assert.throws(() => TCMSync.parse('{"nope":1}'), /not a punch log/);
 
   sync.disconnect();
   assert.equal(store["tcm-sync"], undefined);
