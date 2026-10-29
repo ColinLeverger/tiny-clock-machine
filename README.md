@@ -42,6 +42,8 @@ On a phone: open the Pages URL, **Add to Home Screen**. That is the PWA.
   never ends after the **Day ends** time (bottom of the page, 18:30 by
   default): a press at 20:40 clocks you out at 18:30, a forgotten clock-out
   is not two extra hours. Fix the times in the history if they were off.
+  Every press shows what it recorded for a few seconds, with an **Undo**
+  button: a mis-tap, or the whole typical day, comes back out in one tap.
 - **Tiles** — today (with the break length), this week (with its ± against
   the target), average of the last four full weeks, and the **balance**:
   hours worked minus the target, summed over every closed day with work.

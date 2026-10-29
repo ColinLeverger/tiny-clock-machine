@@ -62,6 +62,10 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
 .sync input{border:1px solid var(--line2);border-radius:7px;padding:.35rem .5rem;background:var(--panel);flex:1;min-width:10em}
 .sync .s.ok{color:var(--ok)}.sync .s.error,.sync .s.conflict{color:var(--no)}.sync .s.dirty,.sync .s.syncing{color:var(--warn)}
 #foot{margin-top:1rem}
+#toast{position:fixed;left:50%;bottom:calc(1.2rem + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:3;display:flex;gap:.8rem;
+  align-items:center;white-space:nowrap;background:var(--head);color:#fff;border-radius:10px;padding:.55rem .9rem;box-shadow:0 3px 12px rgba(0,0,0,.3)}
+#toast[hidden]{display:none}
+#toast .btn{background:transparent;color:#fff;border-color:rgba(255,255,255,.5)}
 </style>
 </head>
 <body>
@@ -101,6 +105,7 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
     </div>
   </details>
   <p class="muted small" id="foot"></p>
+  <div id="toast" hidden><span id="toastText"></span><button class="btn" id="undo">Undo</button></div>
 </main>
 
 <script src="js/clock.js"></script>
@@ -231,9 +236,24 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
   }
 
   // --- actions
-  $("punch").onclick = function () {
-    events.push.apply(events, TCM.punch(events, Date.now(), endMin()));
+  // One press, undoable for a few seconds: a mis-tap or the four-event
+  // typical-day fill comes back out in one tap instead of history edits.
+  var undo = null, toastTimer = null;
+  function punch(now) {
+    var added = TCM.punch(events, now, endMin());
+    events.push.apply(events, added);
     save();
+    var last = added[added.length - 1];
+    $("toastText").textContent = added.length > 1 ? "Recorded a typical day, out at " + TCM.hhmm(last.t)
+      : (last.k === "in" ? "Clocked in " : "Clocked out ") + TCM.hhmm(last.t);
+    undo = added; $("toast").hidden = false;
+    clearTimeout(toastTimer); toastTimer = setTimeout(hideToast, 6000);
+  }
+  function hideToast() { undo = null; $("toast").hidden = true; }
+  $("punch").onclick = function () { punch(Date.now()); };
+  $("undo").onclick = function () {
+    (undo || []).forEach(function (e) { var i = find(e.k, e.t); if (i >= 0) events.splice(i, 1); });
+    hideToast(); save();
   };
   $("history").addEventListener("change", function (e) {
     var el = e.target;
@@ -304,10 +324,7 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
     history.replaceState(null, "", location.pathname);
     var t0 = Date.now();
     // ponytail: a second open within a minute is a double tap, not an undo.
-    if (!events.some(function (e) { return Math.abs(t0 - e.t) < 60000; })) {
-      events.push.apply(events, TCM.punch(events, t0, endMin()));
-      save();
-    }
+    if (!events.some(function (e) { return Math.abs(t0 - e.t) < 60000; })) punch(t0);
     // The tab was opened only to punch: show the result for a moment, push
     // the backup, then close it. A browser closes a tab whose history holds a
     // single page (Chromium, Brave, Firefox); Safari ignores window.close().
