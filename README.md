@@ -9,7 +9,8 @@ today, this week, the last few weeks, all time.
 
 Sibling of [Tiny Tab Maker](https://github.com/ColinLeverger/tiny-tab-maker):
 same recipe, plain HTML/CSS/JS, hosted on **GitHub Pages**, installable as a
-**PWA**, works offline after the first visit.
+**PWA**, works offline after the first visit, follows the system's light or
+dark mode.
 
 ## ⚠️ Honest disclaimer
 

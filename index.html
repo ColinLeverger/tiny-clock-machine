@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Tiny Clock Machine</title>
 <meta name="description" content="Clock in, clock out, see how long you actually worked. Static PWA, data stays in your browser.">
-<meta name="theme-color" content="#2b3440">
+<meta name="theme-color" content="#2b3440" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1317" media="(prefers-color-scheme: dark)">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="mobile-web-app-capable" content="yes">
@@ -14,7 +15,8 @@
 <style>
 :root{--bg:#f4f5f7;--panel:#fff;--ink:#1b1f24;--muted:#6b7280;--line:#e3e6ea;--line2:#cdd2d8;
   --head:#2b3440;--accent:#2f5fb3;--ok:#2f8f3f;--ok-d:#25722f;--no:#c0392b;--no-d:#992d22;--warn:#c4621b;
-  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color-scheme:light dark}
+@media (prefers-color-scheme:dark){:root{--bg:#15191e;--panel:#1e242b;--ink:#e6e9ed;--muted:#8d97a3;--line:#2c343d;--line2:#3b4552;--head:#0f1317;--accent:#7fa6e8}}
 *{box-sizing:border-box}
 html,body{margin:0}
 body{font-family:var(--sans);color:var(--ink);background:var(--bg);font-size:15px;line-height:1.4}
@@ -26,8 +28,8 @@ main{max-width:520px;margin:0 auto;padding:1rem;padding-bottom:calc(2rem + env(s
 .small{font-size:.85em}
 .warn{color:var(--warn)}
 button,input{font:inherit;color:inherit}
-.btn{border:1px solid var(--line2);background:#fff;border-radius:7px;padding:.4rem .7rem;cursor:pointer;line-height:1.2}
-.btn:hover{background:#f0f2f5}
+.btn{border:1px solid var(--line2);background:var(--panel);border-radius:7px;padding:.4rem .7rem;cursor:pointer;line-height:1.2}
+.btn:hover{background:var(--bg)}
 .big{display:block;width:100%;border:0;border-radius:14px;padding:1.4rem;font-size:1.5rem;font-weight:700;color:#fff;
   cursor:pointer;background:var(--ok);box-shadow:0 2px 8px rgba(0,0,0,.15)}
 .big:active{transform:translateY(1px)}
@@ -46,18 +48,18 @@ summary .s{font-weight:400;color:var(--muted)}
 .day.stale .dayhead b{color:var(--warn)}
 .dayhead{display:flex;justify-content:space-between;gap:.5rem}
 .sess{display:flex;align-items:center;gap:.4rem;padding:.25rem 0}
-.sess input[type=time]{border:1px solid var(--line2);border-radius:6px;padding:.2rem .3rem;background:#fff}
+.sess input[type=time]{border:1px solid var(--line2);border-radius:6px;padding:.2rem .3rem;background:var(--panel)}
 .sess .d{flex:1;text-align:right;color:var(--muted)}
 .sess .x{border:0;background:none;color:var(--muted);cursor:pointer;font-size:1.1em;padding:0 .3rem}
 .sess .x:hover{color:var(--no)}
 .tools{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-top:1.4rem}
-.tools input[type=date]{border:1px solid var(--line2);border-radius:7px;padding:.35rem .5rem;background:#fff}
+.tools input[type=date]{border:1px solid var(--line2);border-radius:7px;padding:.35rem .5rem;background:var(--panel)}
 .tools input[type=number],.tools input[type=time]{border:0;background:none;padding:0;font-weight:600}
 .tools input[type=number]{width:3.4em;text-align:right}
 h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:1.4rem 0 .5rem}
 .sync{margin-top:1rem}
 .sync .pad{border-top:1px solid var(--line);padding:.6rem .75rem;display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
-.sync input{border:1px solid var(--line2);border-radius:7px;padding:.35rem .5rem;background:#fff;flex:1;min-width:10em}
+.sync input{border:1px solid var(--line2);border-radius:7px;padding:.35rem .5rem;background:var(--panel);flex:1;min-width:10em}
 .sync .s.ok{color:var(--ok)}.sync .s.error,.sync .s.conflict{color:var(--no)}.sync .s.dirty,.sync .s.syncing{color:var(--warn)}
 #foot{margin-top:1rem}
 </style>
