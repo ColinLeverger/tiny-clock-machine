@@ -32,8 +32,9 @@ button,input{font:inherit;color:inherit}
   cursor:pointer;background:var(--ok);box-shadow:0 2px 8px rgba(0,0,0,.15)}
 .big:active{transform:translateY(1px)}
 .big.out{background:var(--no)}
-#status{text-align:center;margin:.7rem 0 1.4rem}
-.tiles{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-bottom:1.4rem}
+#status,#backup{text-align:center;margin:.7rem 0 0}
+#backup{margin-top:.4rem}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin:1.4rem 0}
 .tile{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:.6rem .75rem}
 .tile .k{font-size:.78em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
 .tile .v{font-size:1.45em;font-weight:700;margin:.1rem 0}
@@ -66,6 +67,7 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
 <main>
   <button id="punch" class="big">Clock in</button>
   <p id="status" class="muted"></p>
+  <p id="backup" class="warn" hidden></p>
 
   <div class="tiles" id="tiles"></div>
 
@@ -108,7 +110,7 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
   try { events = JSON.parse(localStorage.getItem(KEY) || "[]"); } catch (_) {}
   if (!Array.isArray(events)) events = [];
 
-  var TITLE = document.title;
+  var TITLE = document.title, lastErr = "";
   // Weekly target in hours; the daily target is a fifth of it.
   // ponytail: five-day week, fixed; add a days/week input if a 4-day week shows up.
   function target() { var h = parseFloat(localStorage.getItem("tcm-target")); return h > 0 ? h : 39; }
@@ -122,6 +124,7 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
     getEvents: function () { return events; },
     setEvents: function (list) { events = list; persist(); },
     onStatus: function (kind, text) {
+      if (kind === "error" || kind === "conflict") lastErr = text; else if (kind === "ok" || kind === "off") lastErr = "";
       var el = $("syncState"); el.textContent = text; el.className = "s " + kind;
       var on = !!sync.config();
       $("syncForm").hidden = on; $("syncOn").hidden = !on;
@@ -134,6 +137,12 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
     $("foot").textContent = events.length + " punch" + (events.length === 1 ? "" : "es") + " in this browser · " +
       (cfg ? "backed up to GitHub" + (cfg.dirty ? " (pending)" : "") : "no GitHub backup") +
       " · last export " + (ex ? Math.round((Date.now() - ex) / TCM.DAY) + " d ago" : "never");
+    // Loud when the backup has been failing for a day, or never worked: an
+    // expired token is the usual cause and nothing else would show it.
+    var bad = cfg && cfg.dirty && Date.now() - (cfg.at || 0) > TCM.DAY;
+    $("backup").hidden = !bad;
+    if (bad) $("backup").textContent = "⚠ GitHub backup " + (cfg.at ? "failing since " + dateLabel(cfg.at) : "never succeeded") +
+      (lastErr ? ": " + lastErr : "") + (/credentials/i.test(lastErr) ? " · token expired or revoked? Reconnect with a new one" : "");
   }
   function $(id) { return document.getElementById(id); }
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }

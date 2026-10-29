@@ -6,11 +6,12 @@ const store = {};
 globalThis.localStorage = { getItem: k => store[k] ?? null, setItem: (k, v) => { store[k] = String(v); }, removeItem: k => { delete store[k]; } };
 globalThis.addEventListener = () => {};
 const calls = [];
-let remoteFile = null, failPut = 0;
+let remoteFile = null, failPuts = 0, duringPut = null;
 globalThis.fetch = async (url, init) => {
   calls.push(init.method + (init.body ? ":" + (JSON.parse(init.body).sha || "nosha") : ""));
   if (init.method === "GET") return remoteFile ? { status: 200, ok: true, json: async () => remoteFile } : { status: 404, ok: false, json: async () => ({}) };
-  if (failPut) return { status: failPut, ok: false, json: async () => ({ message: "sha mismatch" }) };
+  if (failPuts) { failPuts--; return { status: 409, ok: false, json: async () => ({ message: "sha mismatch" }) }; }
+  if (duringPut) { duringPut(); duringPut = null; }
   remoteFile = { sha: "sha" + calls.length, content: JSON.parse(init.body).content };
   return { status: 200, ok: true, json: async () => ({ content: { sha: remoteFile.sha } }) };
 };
@@ -38,15 +39,14 @@ const sync = TCMSync.create({ getEvents: () => events, setEvents: l => { events 
   assert.equal(calls.pop(), "PUT:" + shaAfterConnect);
   assert.ok(!sync.config().dirty);
 
-  // another device moved the file: push is refused, nothing is lost
-  failPut = 409;
+  // another device moved the file and the merged retry is refused too: conflict, nothing is lost
+  failPuts = 2;
   events.push({ k: "out", t: 4000 });
   await sync.push(false);
   assert.equal(statuses.pop(), "conflict");
   assert.equal(events.length, 4);
 
   // force push re-reads the sha first
-  failPut = 0;
   await sync.push(true);
   assert.deepEqual(calls.slice(-2).map(c => c.split(":")[0]), ["GET", "PUT"]);
   assert.equal(JSON.parse(atob(remoteFile.content)).length, 4);
@@ -81,6 +81,33 @@ const sync = TCMSync.create({ getEvents: () => events, setEvents: l => { events 
   await sync.start();
   assert.ok(!sync.config().dirty, "dirty -> pushed, not pulled");
   assert.equal(events.length, 7);
+
+  // refused push: the other device deleted 2000 and added 7000 while this one
+  // moved 6000 to 6300. Three-way merge against the last pushed copy keeps all
+  // three intents, then the retry goes through with the fresh sha.
+  const base = events.map(e => ({ ...e }));
+  remoteFile = { sha: "theirs", content: btoa(JSON.stringify(base.filter(e => e.t !== 2000).concat([{ k: "in", t: 7000 }]))) };
+  events = base.map(e => e.t === 6000 ? { k: "out", t: 6300 } : e); sync.changed();
+  failPuts = 1;
+  await sync.push(false);
+  const merged = [1000, 3000, 4000, 5000, 5500, 7000, 6300];
+  assert.deepEqual(events.map(e => e.t), merged);
+  assert.deepEqual(JSON.parse(atob(remoteFile.content)).map(e => e.t), merged);
+  assert.deepEqual(calls.slice(-3).map(c => c.split(":")[0]), ["PUT", "GET", "PUT"]);
+  assert.equal(calls.at(-1), "PUT:theirs", "retry carries the sha GitHub has now");
+  assert.equal(statuses.pop(), "ok");
+  assert.ok(!sync.config().dirty);
+  assert.equal(sync.config().sha, remoteFile.sha);
+  assert.deepEqual(sync.config().base.map(e => e.t), merged, "the merge is the next base");
+  // a punch made while the PUT is in flight is not in what GitHub got: the
+  // device stays dirty and pushes again instead of calling itself saved.
+  duringPut = () => { events.push({ k: "in", t: 8000 }); sync.changed(); };
+  await sync.push(false);
+  assert.ok(sync.config().dirty, "change during flight -> still dirty");
+  assert.equal(JSON.parse(atob(remoteFile.content)).length, 7);
+  await sync.push(false);
+  assert.ok(!sync.config().dirty);
+  assert.equal(JSON.parse(atob(remoteFile.content)).length, 8);
 
   sync.disconnect();
   assert.equal(store["tcm-sync"], undefined);

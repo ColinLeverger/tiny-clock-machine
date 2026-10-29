@@ -101,6 +101,9 @@ the GitHub Contents API, after every punch.
 1. Create a private repository (initialise it with a README so `main` exists).
 2. Create a [fine-grained personal access token](https://github.com/settings/personal-access-tokens/new)
    restricted to that repository with **Contents: read and write**, nothing else.
+   Give it the longest expiry GitHub allows (one year): once it expires every
+   push fails, and the warning under the button is the only thing that says
+   so. Reconnect with a new token when that happens.
 3. In the app, open *☁ GitHub backup*, enter `owner/repository` and the
    token, **Connect**. If the repo already has a `tiny-clock.json` the two
    copies are merged.
@@ -110,13 +113,26 @@ the background) as a commit to `tiny-clock.json`. A fresh browser with the
 same repo and token **loads the file back on start**. A browser with nothing
 unsaved checks GitHub whenever it comes to the front and takes the newer
 copy, so punches from another device show up by themselves. The file sha is sent
-with every push, so if another device wrote in between the push is refused
-and the status says so: **⬆ Push** overwrites GitHub with this device,
-**⬇ Pull** replaces this device with GitHub.
+with every push. If another device wrote in between, the push is refused and
+the two copies are merged three ways against the copy this device last
+pushed: punches added on either side are kept, a punch deleted or moved on
+one side stays deleted or moved, and the merge is pushed. If both devices
+moved the same punch, both times are kept and the extra one shows up as an
+open or orphan row to fix by hand. **⬆ Push** (overwrite GitHub with this
+device) and **⬇ Pull** (replace this device with GitHub) stay for the rare
+case where the retry is refused too. When a push has been failing for a
+day, or never worked, a warning appears under the button with GitHub's
+answer.
 
 The token lives in this browser's localStorage, next to the punches. It can
 only touch that one repository. Revoke it on GitHub if the phone goes
-missing.
+missing. One caveat: localStorage is per origin, and GitHub Pages serves
+every project of an account from the same origin (`user.github.io`), so a
+script running on any other page of that account, including third-party
+libraries those pages load from a CDN, can read the token. What it gets is
+read and write access to that one private repository and its punch log,
+which the git history restores. If that is too much, serve the app from a
+domain of your own (a `CNAME` file in the repo) so it gets its own origin.
 
 ## Privacy
 
