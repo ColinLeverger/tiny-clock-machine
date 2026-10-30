@@ -132,6 +132,26 @@ const sync = TCMSync.create({ getEvents: () => events, setEvents: l => { events 
   assert.deepEqual(TCMSync.parse("[]"), { events: [], extra: { settings: {}, days: {} } });
   assert.throws(() => TCMSync.parse('{"nope":1}'), /not a punch log/);
 
+  // Provenance survives deduplication, JSON, pull and three-way conflicts.
+  const estimated = { k: "in", t: 1234, source: "typical" };
+  assert.deepEqual(TCMSync.union([estimated], [{k:"in",t:1234}]), [estimated]);
+  const reviewed = {...estimated, source:"reviewed"};
+  assert.deepEqual(TCMSync.union([reviewed], [estimated]), [reviewed]);
+  assert.deepEqual(TCMSync.merge([estimated], [reviewed], [estimated]), [reviewed]);
+  assert.deepEqual(TCMSync.merge([estimated], [estimated], [reviewed]), [reviewed]);
+  assert.deepEqual(TCMSync.union([{...estimated,source:"junk"}], []), [{k:"in",t:1234}]);
+  assert.deepEqual(TCMSync.union([{k:"in",t:Infinity}], []), []);
+  const confirmed = {...estimated, reviewed:true};
+  assert.deepEqual(TCMSync.merge([estimated], [confirmed], [estimated]), [confirmed]);
+  assert.deepEqual(TCMSync.merge([estimated], [estimated], [confirmed]), [confirmed]);
+  assert.deepEqual(TCMSync.merge([estimated], [confirmed], []), [], "metadata changes cannot resurrect a remote deletion");
+  assert.deepEqual(TCMSync.union([confirmed], [estimated]), [confirmed]);
+  events = [confirmed]; sync.changed(); await sync.push(false);
+  assert.equal(JSON.parse(atob(remoteFile.content)).events[0].source, "typical");
+  events = []; await sync.pull();
+  assert.equal(events[0].source, "typical");
+  assert.equal(events[0].reviewed, true);
+  assert.deepEqual(TCMSync.parse(TCMSync.serialize(events, extra)).events, events);
   sync.disconnect();
   assert.equal(store["tcm-sync"], undefined);
   console.log("sync tests passed");

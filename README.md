@@ -53,13 +53,36 @@ On a phone: open the Pages URL, **Add to Home Screen**. That is the PWA.
   "Day" means a day with at least one closed session. Tap the balance tile
   to count it from today on, and again to go back to all time: an all-time
   balance stops meaning anything after a year.
-- **Trends** — expand to see the average of the last four full weeks and
-  twelve weeks as bars, with the weekly target as a dashed line and the
-  running week lighter. Tap a bar, use Enter/Space, or pick a week from the
-  dropdown to show its numbers.
+- **Trends & weekly review** — this week's worked hours, the Monday–Friday
+  target adjusted for marked half days and days off, and remaining hours.
+  Compare with last week through the same weekday and local time (a later
+  clock-out in that week is clipped to the comparison time). Missing records
+  can affect comparisons; no earlier punches means comparison unavailable.
+  Choose the last **4, 12 or 26 full calendar weeks**. Calendar averages
+  include empty weeks; averages over weeks with work and worked days are
+  labelled separately. The period total is compared with the preceding
+  equally long period. The chart includes those completed weeks plus the
+  running week, with dashed ticks for each week's adjusted target. Tap a
+  bar, use Enter/Space, or choose a week in the dropdown, then tap a day to
+  open its editor. The weekly review also links directly to its days.
+- **Typical day** — median start, finish and total daily break in the selected
+  full-week period, using completed days without review flags. The sample
+  size is shown; confirmed days without breaks count as zero break. These
+  are recorded work patterns, not measures of productivity.
+- **Needs review** — a shortcut above today's sessions opens a queue covering
+  all recorded days with missing punches, typical-day estimates, capped
+  clock-outs, manually added times or a possible forgotten break. Tap a day
+  to correct it, then **Confirm day’s times** when the times are right.
+  Confirmation preserves the original origin and clears estimate/break
+  flags; missing punches still need correction. Ordinary new punches are
+  labelled recorded; older punches have unknown origins, because earlier
+  versions did not save that information. Unknown does not automatically
+  mean incorrect. Totals include running sessions and estimates, so review
+  flags matter before relying on the numbers. Current target settings apply
+  to historical comparisons; target changes are not versioned.
 - **Target** — hours per week, in *⚙ Settings* (default 39). A fifth of it
   is the daily target behind *leave at*, the week's ± and the balance. Today
-  is left out of the balance while it runs. A day without work costs
+  is left out of the balance until the following day. A day without work costs
   nothing, so holidays and sick days need no bookkeeping — the balance
   answers "do I work more than a normal day on the days I work", not "how
   many days off have I banked".
@@ -87,11 +110,13 @@ On a phone: open the Pages URL, **Add to Home Screen**. That is the PWA.
   always a forgotten lunch. **+ Add day** inserts a 09:00–17:00 session on
   the chosen date for days you forgot entirely, then fix the times.
 - **⇅ Export / import** — JSON is everything: `{ "events": [{ "k": "in"|"out",
-  "t": ms }], "settings": { "target", "end", "since" }, "days": { "YYYY-MM-DD":
+  "t": ms, "source": "recorded" }], "settings": { "target", "end", "since" }, "days": { "YYYY-MM-DD":
   "off"|"half" } }`. Import merges and de-duplicates, it never wipes what is
   already there; an older export that is a bare list still imports. CSV is
   one row per day (date, mark, first in, last out, break, worked, vs target)
-  with hours as decimals, for a spreadsheet.
+  with hours as decimals, review flags and punch origins, for a spreadsheet.
+  JSON retains optional per-punch `source` and `reviewed` fields through
+  import, export and GitHub sync; older exports remain compatible.
 - **☁ GitHub backup** — see below. The footer tells you how many punches the
   browser holds, whether they are backed up, and when you last exported.
 
@@ -195,7 +220,8 @@ icons/                app icons
 Run `node --test tests/clock.test.js tests/sync.test.js` for clock and sync
 logic. With the local server running, open `http://localhost:8000/tests/ui.html`
 for browser checks covering punches, Undo, time edits, lunch splits, deletion,
-focus preservation, chart selection, narrow widths and larger text. Fixtures
+focus preservation, chart and period selection, review navigation and confirmation,
+narrow widths and larger text. Fixtures
 use in-memory storage and leave your punches untouched. Check the installed
 PWA on a real iPhone for safe areas, the native time picker and keyboard behavior.
 

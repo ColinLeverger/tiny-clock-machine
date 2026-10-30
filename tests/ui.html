@@ -88,6 +88,44 @@
     w = await mount([{k:"in",t:at(30,9)}],16); d=w.document;
     w.testNow=at(31,9); w.tick();
     check(d.querySelector("#todaySessions").textContent.includes("No sessions"), "Midnight refresh moves yesterday out of today's sessions");
+    w = await mount([],20); d=w.document;
+    click(w,"#punch");
+    check(punches(w)[0].source==="typical" && punches(w).at(-1).source==="capped", "Estimated and capped origins persist");
+    check(!d.querySelector("#reviewShortcut").hidden, "Reconstructed days offer a review shortcut");
+    click(w,"#reviewShortcut");
+    check(d.querySelector("#trends").open && d.activeElement.id==="reviewHeading", "Review shortcut opens and focuses the queue");
+    click(w,"#reviewDays [data-jump]");
+    check(!d.querySelector("#editor-2026-10-30").hidden, "Review queue opens the matching editor");
+    click(w,"[data-reviewed]");
+    check(punches(w).every(e=>e.reviewed) && punches(w)[0].source==="typical" && d.querySelector("#reviewShortcut").hidden, "Confirming times clears estimate flags");
+    var exported;
+    w.URL.createObjectURL=blob=>{exported=blob;return "blob:fixture"};
+    w.URL.revokeObjectURL=()=>{}; w.HTMLAnchorElement.prototype.click=()=>{};
+    click(w,"#export"); var exportedJson=JSON.parse(await exported.text());
+    check(exportedJson.events[0].source==="typical" && exportedJson.events[0].reviewed, "JSON export retains origin and confirmation");
+    click(w,"#exportCsv"); var csv=await exported.text();
+    check(csv.includes("review_flags,origins") && csv.includes("typical; capped"), "CSV includes review flags and original sources");
+    var transfer=new w.DataTransfer();
+    transfer.items.add(new w.File([JSON.stringify({events:[{k:"in",t:at(28,9),source:"typical",reviewed:true},{k:"out",t:at(28,12),source:"recorded"}]})],"import.json",{type:"application/json"}));
+    var picker=d.querySelector("#import");picker.files=transfer.files;
+    picker.dispatchEvent(new w.Event("change",{bubbles:true}));
+    await new Promise(resolve=>setTimeout(resolve,50));
+    check(punches(w).some(e=>e.t===at(28,9)&&e.source==="typical"&&e.reviewed), "JSON import preserves origins and confirmation");
+    var period=d.querySelector("#trendPeriod"); period.value="4"; period.dispatchEvent(new w.Event("change",{bubbles:true}));
+    check(d.querySelectorAll("[data-week]").length===5, "Four-week view includes four full weeks and the current week");
+    check(d.querySelector("#periodStats").textContent.includes("all 4 calendar weeks"), "Calendar average labels its denominator");
+    check(d.querySelector("#weeklyReview").textContent.includes("remaining"), "Weekly review reports remaining hours");
+    period.value="26"; period.dispatchEvent(new w.Event("change",{bubbles:true}));
+    check(d.querySelectorAll("[data-week]").length===27, "Twenty-six-week period is selectable");
+    d.querySelector("#trends").open=true;
+    for (var width of [320,390,430]) {
+      frame.style.width=width+"px";
+      check(d.documentElement.scrollWidth<=w.innerWidth,"Stats fit at "+width+"px");
+    }
+    w = await mount([{k:"in",t:at(29,9)}],16); d=w.document;
+    click(w,"#reviewShortcut"); click(w,"#reviewDays [data-jump]"); click(w,"[data-reviewed]");
+    check(!d.querySelector("#reviewShortcut").hidden, "Confirming an incomplete day keeps its missing-punch warning");
+    check(w.uiErrors.length===0,"Stats interactions produce no browser errors");
     output.textContent = passed.length + " checks passed\n" + passed.join("\n");
     window.testResult={passed:passed.length,errors:[]};
   } catch (error) {

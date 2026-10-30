@@ -4,6 +4,7 @@ const assert = require("node:assert/strict");
 const TCM = require("../js/clock.js");
 
 const at = (y, mo, d, h, mi) => new Date(y, mo - 1, d, h, mi).getTime();
+const punchTimes = (...args) => TCM.punch(...args).map(({k,t}) => ({k,t}));
 const now = at(2026, 10, 1, 15, 0);           // Thu 1 Oct 2026, 15:00
 
 const events = [
@@ -42,27 +43,27 @@ assert.equal(TCM.fmt(59 * 60000 + 31000), "1h00");
 
 // punch(): first press of the day after 14:00 records a typical day ending now.
 const late = at(2026, 10, 2, 16, 30);
-assert.deepEqual(TCM.punch([], late), [
+assert.deepEqual(punchTimes([], late), [
   { k: "in", t: at(2026, 10, 2, 9, 0) }, { k: "out", t: at(2026, 10, 2, 12, 0) },
   { k: "in", t: at(2026, 10, 2, 14, 0) }, { k: "out", t: late },
 ]);
-assert.deepEqual(TCM.punch([], at(2026, 10, 2, 13, 59)), [{ k: "in", t: at(2026, 10, 2, 13, 59) }], "before 14:00 -> plain in");
-assert.deepEqual(TCM.punch(events, now), [{ k: "out", t: now }], "clocked in -> plain out");
-assert.deepEqual(TCM.punch([{ k: "in", t: at(2026, 10, 2, 8, 0) }, { k: "out", t: at(2026, 10, 2, 12, 0) }], late),
+assert.deepEqual(punchTimes([], at(2026, 10, 2, 13, 59)), [{ k: "in", t: at(2026, 10, 2, 13, 59) }], "before 14:00 -> plain in");
+assert.deepEqual(punchTimes(events, now), [{ k: "out", t: now }], "clocked in -> plain out");
+assert.deepEqual(punchTimes([{ k: "in", t: at(2026, 10, 2, 8, 0) }, { k: "out", t: at(2026, 10, 2, 12, 0) }], late),
   [{ k: "in", t: late }], "already punched today -> plain in");
-assert.equal(TCM.fmt(TCM.days(TCM.punch([], late), late)[0].ms), "5h30");
+assert.equal(TCM.fmt(TCM.days(punchTimes([], late), late)[0].ms), "5h30");
 
 // A day ends at the cap (18:30 by default, configurable): a late press clocks
 // out at the cap, both for a plain out and for the typical-day fill. An in
 // after the cap is kept as is.
 const night = at(2026, 10, 2, 20, 40), cap = at(2026, 10, 2, 18, 30), seven = at(2026, 10, 2, 19, 0);
 assert.equal(TCM.END, 18 * 60 + 30);
-assert.deepEqual(TCM.punch([{ k: "in", t: at(2026, 10, 2, 9, 0) }], night), [{ k: "out", t: cap }], "late out -> capped at 18:30");
-assert.deepEqual(TCM.punch([{ k: "in", t: at(2026, 10, 2, 9, 0) }], night, 19 * 60), [{ k: "out", t: seven }], "custom cap 19:00");
-assert.deepEqual(TCM.punch([{ k: "in", t: at(2026, 10, 2, 19, 30) }], night), [{ k: "out", t: night }], "in after the cap -> out now");
-assert.deepEqual(TCM.punch([], night).pop(), { k: "out", t: cap }, "late typical day ends at the cap");
-assert.deepEqual(TCM.punch([], night, 19 * 60).pop(), { k: "out", t: seven }, "late typical day, custom cap");
-assert.deepEqual(TCM.punch([{ k: "in", t: at(2026, 10, 2, 9, 0) }], cap - 60000), [{ k: "out", t: cap - 60000 }], "18:29 -> out now");
+assert.deepEqual(punchTimes([{ k: "in", t: at(2026, 10, 2, 9, 0) }], night), [{ k: "out", t: cap }], "late out -> capped at 18:30");
+assert.deepEqual(punchTimes([{ k: "in", t: at(2026, 10, 2, 9, 0) }], night, 19 * 60), [{ k: "out", t: seven }], "custom cap 19:00");
+assert.deepEqual(punchTimes([{ k: "in", t: at(2026, 10, 2, 19, 30) }], night), [{ k: "out", t: night }], "in after the cap -> out now");
+assert.deepEqual(punchTimes([], night).pop(), { k: "out", t: cap }, "late typical day ends at the cap");
+assert.deepEqual(punchTimes([], night, 19 * 60).pop(), { k: "out", t: seven }, "late typical day, custom cap");
+assert.deepEqual(punchTimes([{ k: "in", t: at(2026, 10, 2, 9, 0) }], cap - 60000), [{ k: "out", t: cap - 60000 }], "18:29 -> out now");
 
 // delta(): worked days vs a daily target, today excluded while it runs.
 const H = 3600000;
@@ -94,4 +95,65 @@ assert.equal(marked[1].mark, "half"); assert.equal(marked[1].ms, 0); assert.equa
 assert.deepEqual(TCM.delta(marked, 7 * H, now), { ms: (0.5 + 2 - 3.5) * H, n: 3 });
 assert.equal(TCM.days(events, now).length, 4, "no marks -> unchanged");
 
+// Full calendar periods include empty weeks, while recorded-week averages do not.
+const reviewNow = at(2026, 10, 30, 15, 0);
+const samples = [
+  {k:"in", t:at(2026,10,5,9,0), source:"recorded"},
+  {k:"out",t:at(2026,10,5,12,0), source:"recorded"},
+  {k:"in", t:at(2026,10,5,13,0), source:"recorded"},
+  {k:"out",t:at(2026,10,5,17,0), source:"recorded"},
+  {k:"in", t:at(2026,10,19,10,0), source:"recorded"},
+  {k:"out",t:at(2026,10,19,14,0), source:"recorded"}
+];
+const report = TCM.statistics(TCM.days(samples, reviewNow), reviewNow, 4);
+assert.equal(report.total, 11 * H);
+assert.equal(report.calendarAverage, 11 * H / 4);
+assert.equal(report.recordedAverage, 11 * H / 2);
+assert.equal(report.recordedWeeks, 2);
+assert.equal(report.hasPrevious, false);
+const previousSample = TCM.days([{k:"in",t:at(2026,9,7,9,0)},{k:"out",t:at(2026,9,7,11,0)}],reviewNow);
+const withPrevious = TCM.statistics(TCM.days(samples,reviewNow).concat(previousSample),reviewNow,4);
+assert.equal(withPrevious.hasPrevious,true);
+assert.equal(withPrevious.previous,2*H);
+assert.equal(withPrevious.difference,9*H);
+assert.equal(report.difference, 11*H);
+assert.equal(report.patternDays, 2);
+assert.equal(report.typicalStart, 9 * 60 + 30);
+assert.equal(report.typicalFinish, 15 * 60 + 30);
+assert.equal(report.typicalBreak, H / 2);
+assert.equal(TCM.statistics([], reviewNow, 4).recordedAverage, null);
+assert.equal(TCM.statistics([], reviewNow, 4).typicalStart, null);
+// A very old worked week cannot leak into the current four-week average.
+assert.equal(TCM.statistics([mon], reviewNow, 4).recordedWeeks, 0);
+assert.equal(TCM.punch([],at(2026,10,29,9,0))[0].source, "recorded");
+const filled = TCM.punch([], at(2026,10,29,20,0));
+assert.equal(filled[0].source, "typical");
+assert.equal(filled.at(-1).source, "capped");
+let filledDays = TCM.days(filled, reviewNow);
+assert.deepEqual(TCM.reasons(filledDays[0]), ["Typical-day estimate", "Capped clock-out"]);
+assert.equal(TCM.statistics(filledDays, at(2026,11,2,9,0), 4).patternDays, 0);
+filled.forEach(e => e.reviewed = true);
+assert.equal(filled[0].source, "typical", "confirmation preserves origin");
+assert.deepEqual(TCM.reasons(TCM.days(filled, reviewNow)[0]), []);
+assert.ok(TCM.reasons(wed).includes("Missing clock-out"));
+assert.ok(TCM.reasons(thu).includes("Missing clock-in"));
+// Clearing provenance flags cannot conceal a genuinely missing end.
+assert.ok(TCM.reasons(TCM.days([{k:"in",t:at(2026,10,29,9,0),source:"reviewed"}],reviewNow)[0]).includes("Missing clock-out"));
+const schedule = {"2026-10-26":"off", "2026-10-27":"half", "2026-10-31":"half"};
+assert.equal(TCM.expected(at(2026,10,26,0,0), at(2026,11,2,0,0), 8*H, schedule), 28*H);
+// Compare through Friday 15:00; last Friday's later clock-out must be clipped.
+const compareEvents = [
+  {k:"in",t:at(2026,10,23,9,0)}, {k:"out",t:at(2026,10,23,17,0)},
+  {k:"in",t:at(2026,10,30,10,0)}
+];
+const weekReport = TCM.weeklyReview(compareEvents, reviewNow, 8*H, schedule);
+assert.equal(weekReport.total, 5*H);
+assert.equal(weekReport.previous, 6*H);
+assert.equal(weekReport.difference, -H);
+assert.equal(weekReport.target, 28*H);
+assert.equal(weekReport.remaining, 23*H);
+// Local calendar windows stay at midnight across the October DST change.
+assert.equal(new Date(TCM.shiftDays(at(2026,10,26,0,0),-7)).getHours(), 0);
+assert.equal(TCM.dayKey(TCM.shiftDays(at(2026,10,26,0,0),-7)), "2026-10-19");
+assert.equal(new Date(TCM.shiftDays(reviewNow,-7)).getHours(), 15);
 console.log("clock tests passed");

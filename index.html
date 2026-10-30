@@ -145,6 +145,7 @@ body:has(input:focus) .actionbar{display:none}
   <p id="backup" class="warn" hidden></p>
 
   <div class="tiles" id="tiles"></div>
+  <button class="btn warn" id="reviewShortcut" hidden></button>
   <section aria-labelledby="todaySessionsHeading">
     <div class="sectionhead"><h2 id="todaySessionsHeading">Today’s sessions</h2></div>
     <div id="todaySessions"></div>
@@ -154,8 +155,17 @@ body:has(input:focus) .actionbar{display:none}
   <div id="history"></div>
 
   <details id="trends">
-    <summary>Trends</summary>
-    <div class="trend" id="trend"></div>
+    <summary>Trends &amp; weekly review</summary>
+    <div class="trend">
+      <h2>This week</h2><div id="weeklyReview"></div>
+      <p class="muted small">Monday–Friday target, adjusted for marked time off. Totals include running sessions and estimates; unrecorded days are unknown.</p>
+      <label for="trendPeriod">History period</label>
+      <select id="trendPeriod" class="trend-select"><option value="4">Last 4 full calendar weeks</option><option value="12" selected>Last 12 full calendar weeks</option><option value="26">Last 26 full calendar weeks</option></select>
+      <div id="periodStats"></div><div id="trend"></div>
+      <h3>Typical day</h3><p id="patterns"></p>
+      <h3 id="reviewHeading" tabindex="-1">Needs review</h3><div id="reviewDays"></div>
+      <p class="muted small">Older punch origins are unknown. Missing records affect comparisons. Current target settings apply to history. Balance compares recorded past days with their daily target, excluding today and unrecorded days; it is not a leave allowance.</p>
+    </div>
   </details>
   <details id="dayTools">
     <summary>Add a day / mark time off</summary>
@@ -278,7 +288,6 @@ body:has(input:focus) .actionbar{display:none}
     return new Date(+d[0], d[1] - 1, +d[2], +h[0], +h[1]).getTime();
   }
   function find(k, t) { for (var i = 0; i < events.length; i++) if (events[i].k === k && events[i].t === t) return i; return -1; }
-  function avg(ms, n) { return n ? TCM.fmt(ms / n) : "–"; }
 
   function render(refreshHistory) {
     var now = Date.now(), today = TCM.dayKey(now);
@@ -299,7 +308,8 @@ body:has(input:focus) .actionbar{display:none}
     $("todayState").classList.toggle("running", inNow);
     $("todayHint").textContent = inNow ? "Since " + TCM.hhmm(todayD.sessions[todayD.sessions.length - 1].start) + " · " + (leftHint()) : todayD && todayD.ms ? (leftHint()) : "Ready when you are";
     function leftHint() {
-      var left = daily - (todayD ? todayD.ms : 0);
+      var want = todayD && todayD.mark === "off" ? 0 : todayD && todayD.mark === "half" ? daily / 2 : daily;
+      var left = want - (todayD ? todayD.ms : 0);
       return left > 0 ? (inNow ? "Target reached at " + TCM.hhmm(now + left) : TCM.fmt(left) + " to target") : (left === 0 ? "Daily target reached" : TCM.fmt(-left) + " over target");
     }
     b.classList.toggle("out", nextOut);
@@ -312,53 +322,17 @@ body:has(input:focus) .actionbar{display:none}
     // --- stat tiles
     var byStart = {}; weeks.forEach(function (w) { byStart[w.start] = w; });
     var thisWeek = byStart[TCM.weekStart(now)] || null;
-    var past = weeks.filter(function (w) { return w.start < TCM.weekStart(now); }).slice(0, 4);
-    var pastMs = 0, pastDays = 0;
-    past.forEach(function (w) { pastMs += w.ms; pastDays += w.days.filter(function (d) { return d.ms > 0; }).length; });
     var from = since(), bdays = days.filter(function (d) { return d.start >= from; });
     var wd = thisWeek ? thisWeek.days.filter(function (d) { return d.ms > 0; }).length : 0;
     var wDelta = TCM.delta(thisWeek ? thisWeek.days : [], daily, now), balance = TCM.delta(bdays, daily, now);
     if (refreshHistory !== false || !document.activeElement.closest("#tiles")) $("tiles").innerHTML = [
-      tile("This week", thisWeek ? TCM.fmt(thisWeek.ms) : "0h00", wd + " day" + (wd === 1 ? "" : "s") + (wDelta.n ? " · " + TCM.sfmt(wDelta.ms) + " vs target" : "")),
-      tile("Balance", TCM.sfmt(balance.ms), (from ? "since " + shortDate(from) : "all time") + " · change period",
+      tile("This week", thisWeek ? TCM.fmt(thisWeek.ms) : "0h00", wd + " day" + (wd === 1 ? "" : "s") + (wDelta.n ? " · " + TCM.sfmt(wDelta.ms) + " vs recorded-day target" : "")),
+      tile("Balance", TCM.sfmt(balance.ms), (from ? "since " + shortDate(from) : "all time") + " · recorded days · change period",
         ' id="balance" data-since aria-label="Balance ' + TCM.sfmt(balance.ms) + '. Change balance period"')
     ].join("");
     $("setState").textContent = target() + " h/wk · ends " + endHHMM();
 
-    // --- the last 12 weeks as bars, the weekly target as a dashed line
-    var cols = [], ws0 = TCM.weekStart(now);
-    for (var i = 11; i >= 0; i--) { var s = TCM.weekStart(ws0 - i * 7 * TCM.DAY + 3 * TCM.DAY); cols.push(byStart[s] || { start: s, ms: 0, days: [] }); }
-    var top = cols.reduce(function (m, w) { return Math.max(m, w.ms); }, target() * H), y = function (ms) { return 44 - ms / top * 40; };
-    function weekLabel(w) {
-      var dl = TCM.delta(w.days, daily, now);
-      return shortDate(w.start) + " – " + shortDate(w.start + 6 * TCM.DAY) + " · " + TCM.fmt(w.ms) + (dl.n ? " · " + TCM.sfmt(dl.ms) + " vs target" : "");
-    }
-    if (refreshHistory !== false) {
-      var selected = $("trendWeeks") ? $("trendWeeks").value : String(ws0);
-      $("trend").innerHTML = tile("Last " + past.length + " week" + (past.length === 1 ? "" : "s"), avg(pastMs, past.length) + "/wk", "avg " + avg(pastMs, pastDays) + "/day") +
-        '<div class="k">Last 12 weeks · dashed line ' + target() + 'h</div><svg role="group" aria-label="Weekly worked hours" viewBox="0 0 240 46">' +
-        cols.map(function (w, i) {
-          var label = weekLabel(w);
-          return '<g role="button" tabindex="0" data-week="' + w.start + '" aria-label="' + esc(label) + '" aria-pressed="' + (String(w.start) === selected) + '"><rect x="' + (i * 20) + '" y="0" width="20" height="46" style="fill:transparent"/><rect' + (w.start === ws0 ? ' class="now"' : "") + ' x="' + (i * 20 + 3) + '" y="' + y(w.ms).toFixed(1) + '" width="14" height="' + (44 - y(w.ms)).toFixed(1) + '"/></g>';
-        }).join("") +
-        '<line class="target" style="pointer-events:none" x1="0" x2="240" y1="' + y(target() * H).toFixed(1) + '" y2="' + y(target() * H).toFixed(1) + '"/><line style="pointer-events:none" x1="0" x2="240" y1="44.5" y2="44.5"/></svg>' +
-        '<label for="trendWeeks" class="small">Week details</label><select id="trendWeeks" class="trend-select">' + cols.map(function (w) {
-          return '<option value="' + w.start + '"' + (String(w.start) === selected ? ' selected' : '') + '>' + esc(weekLabel(w)) + '</option>';
-        }).join("") + '</select><p id="trendValue" class="small" aria-live="polite"></p>';
-      showTrend();
-    } else {
-      cols.forEach(function (w, i) {
-        var group = $("trend").querySelector('[data-week="' + w.start + '"]');
-        if (!group) return;
-        var rect = group.lastElementChild;
-        group.setAttribute("aria-label", weekLabel(w));
-        rect.setAttribute("y", y(w.ms).toFixed(1)); rect.setAttribute("height", (44 - y(w.ms)).toFixed(1));
-        $("trendWeeks").options[i].textContent = weekLabel(w);
-      });
-      $("trend").querySelector(".target").setAttribute("y1", y(target() * H).toFixed(1));
-      $("trend").querySelector(".target").setAttribute("y2", y(target() * H).toFixed(1));
-      showTrend();
-    }
+    renderInsights(days, weeks, now, refreshHistory);
 
     // --- dot on the app icon (and tab title) while clocked in. Installed app
     // only; iOS and Android draw it once notifications are allowed.
@@ -404,13 +378,51 @@ body:has(input:focus) .actionbar{display:none}
     if (focusId && document.getElementById(focusId)) document.getElementById(focusId).focus({ preventScroll: true });
     foot();
   }
+  function dayButton(d) {
+    return '<button class="btn" data-jump="' + d.key + '">' + esc(dateLabel(d.start)) + ' · ' + TCM.fmt(d.ms) + '</button>';
+  }
+  function renderInsights(days, weeks, now, refreshHistory) {
+    var review = days.filter(function (d) { return d.start <= now && TCM.reasons(d).length; });
+    $("reviewShortcut").hidden = !review.length;
+    $("reviewShortcut").textContent = review.length + " day" + (review.length === 1 ? " needs" : "s need") + " review";
+    if (refreshHistory === false && document.activeElement.closest("#trends")) return;
+    var count = +$("trendPeriod").value, stats = TCM.statistics(days, now, count);
+    var weekly = TCM.weeklyReview(events, now, dailyMs(), marks());
+    $("weeklyReview").innerHTML = '<p><b>' + TCM.fmt(weekly.total) + '</b> worked / ' + TCM.fmt(weekly.target) + ' target · <b>' + TCM.fmt(weekly.remaining) + '</b> remaining</p>' +
+      '<p>' + (weekly.hasPrevious ? TCM.sfmt(weekly.difference) + ' vs last week through ' + esc(dateLabel(TCM.shiftDays(now, -7))) + ' at ' + TCM.hhmm(now) + ' (' + TCM.fmt(weekly.previous) + ' recorded).' : 'Comparison unavailable: no punches in the equivalent period last week.') + '</p>' +
+      '<p class="small muted">' + weekly.review.length + ' day' + (weekly.review.length === 1 ? '' : 's') + ' to review this week.</p>' +
+      days.filter(function (d) { return d.start >= weekly.start && d.start <= now; }).map(dayButton).join(" ");
+    $("periodStats").innerHTML = '<p class="small muted">' + esc(dateLabel(stats.start, {day:'numeric',month:'short',year:'numeric'})) + ' – ' + esc(dateLabel(TCM.shiftDays(stats.end,-1), {day:'numeric',month:'short',year:'numeric'})) + '</p><p><b>' + TCM.fmt(stats.total) + '</b> recorded · ' + stats.workedDays + ' worked days · ' + stats.review.length + ' days needing review</p><p>' + (stats.hasPrevious ? TCM.sfmt(stats.difference) + ' vs the preceding ' + count + ' full calendar weeks (' + TCM.fmt(stats.previous) + ' recorded). Missing records can affect this comparison.' : 'Comparison unavailable: no punches in the preceding ' + count + ' full calendar weeks.') + '</p>' +
+      '<p><b>' + TCM.fmt(stats.calendarAverage) + '/wk</b> over all ' + count + ' calendar weeks (empty weeks included).<br>' +
+      (stats.recordedAverage == null ? 'No worked weeks recorded.' : TCM.fmt(stats.recordedAverage) + '/wk over ' + stats.recordedWeeks + ' weeks with work; ' + TCM.fmt(stats.dayAverage) + '/worked day.') + '</p>';
+    function clockMinute(n) { return n == null ? '–' : TCM.hhmm(new Date(2000, 0, 1, 0, Math.round(n))); }
+    $("patterns").textContent = stats.patternDays ? 'Median start ' + clockMinute(stats.typicalStart) + ' · finish ' + clockMinute(stats.typicalFinish) + ' · break ' + TCM.fmt(stats.typicalBreak) + '. Based on ' + stats.patternDays + ' completed days without review flags in this period; no-break days count as zero break.' : 'No completed days without review flags in this period yet.';
+    $("reviewDays").innerHTML = review.length ? review.map(function (d) { return '<p>' + dayButton(d) + ' <span class="warn small">' + esc(TCM.reasons(d).join(' · ')) + '</span></p>'; }).join('') : '<p>No flagged days. Unrecorded days and older estimates cannot be detected automatically.</p>';
+    var ws = TCM.weekStart(now), byStart = {};
+    weeks.forEach(function (w) { byStart[w.start] = w; });
+    var cols = [];
+    for (var i = count; i >= 0; i--) { var start = TCM.shiftDays(ws, -i * 7); cols.push(byStart[start] || { start: start, ms: 0, days: [] }); }
+    function label(w) { return shortDate(w.start) + ' – ' + shortDate(TCM.shiftDays(w.start, 6)) + ' · ' + TCM.fmt(w.ms) + ' recorded · ' + TCM.fmt(TCM.expected(w.start, TCM.shiftDays(w.start, 7), dailyMs(), marks())) + ' target' + (w.start === ws ? ' · in progress' : ''); }
+    var old = $("trendWeeks"), selected = old ? old.value : String(ws);
+    var top = cols.reduce(function (m, w) { return Math.max(m, w.ms, TCM.expected(w.start, TCM.shiftDays(w.start, 7), dailyMs(), marks())); }, H);
+    var y = function (ms) { return 74 - ms / top * 68; }, width = cols.length * 24;
+    $("trend").innerHTML = '<h3>Weekly recorded hours</h3><p class="small muted">' + count + ' full weeks plus this week. Scale: 0–' + TCM.fmt(top) + '. Dashed ticks show the target adjusted for marked time off.</p><svg role="group" aria-label="Weekly recorded hours and adjusted targets" preserveAspectRatio="none" style="height:120px" viewBox="0 0 ' + width + ' 90">' +
+      cols.map(function (w, i) {
+        var targetY = y(TCM.expected(w.start, TCM.shiftDays(w.start, 7), dailyMs(), marks()));
+        return '<g role="button" tabindex="0" data-week="' + w.start + '" aria-label="' + esc(label(w)) + '" aria-pressed="false"><rect x="' + i * 24 + '" y="0" width="24" height="90" style="fill:transparent"/><rect' + (w.start === ws ? ' class="now"' : '') + ' x="' + (i * 24 + 4) + '" y="' + y(w.ms) + '" width="16" height="' + (74 - y(w.ms)) + '"/><line class="target" x1="' + (i * 24 + 2) + '" x2="' + (i * 24 + 22) + '" y1="' + targetY + '" y2="' + targetY + '"/></g>';
+      }).join('') + '</svg><label for="trendWeeks" class="small">Week details</label><select id="trendWeeks" class="trend-select">' + cols.map(function (w) { return '<option value="' + w.start + '"' + (String(w.start) === selected ? ' selected' : '') + '>' + esc(label(w)) + '</option>'; }).join('') + '</select><p id="trendValue" class="small" aria-live="polite"></p><div id="trendDays"></div>';
+    showTrend();
+  }
   function tile(k, v, s, attr) { var tag = attr ? "button" : "div"; return '<' + tag + ' class="tile"' + (attr || "") + '><span class="k">' + esc(k) + '</span><span class="v">' + esc(v) + '</span><span class="s">' + esc(s) + "</span></" + tag + ">"; }
   // The typical lunch of that day, as epoch ms: [out, back in].
   function lunch(day) { return [at(day, TCM.LUNCH_OUT + ":00"), at(day, TCM.LUNCH_IN + ":00")]; }
   function dayHtml(d, isToday) {
     var l = lunch(d.key), now = Date.now();
     // ponytail: six hours straight with no break is nearly always a forgotten lunch.
-    var noBreak = !d.breaks && d.ms > 6 * H;
+    var noBreak = TCM.reasons(d).indexOf("No break?") >= 0;
+    var sources = [].concat.apply([], d.sessions.map(function (s) { return s.sources; }));
+    var origin = TCM.reasons(d).filter(function (r) { return /estimate|Capped|Added/.test(r); }).join(" · ");
+    if (!origin) origin = sources.indexOf("reviewed") >= 0 ? "Reviewed times" : sources.some(function (v) { return !v; }) ? "Origin unknown (older punches)" : sources.length ? "Recorded punches" : "";
     // The shape of the day: a 06:00-20:00 strip, one block per session, a
     // tick at the day-end cap. ponytail: fixed window, anything outside it
     // is clamped to the edge.
@@ -422,6 +434,7 @@ body:has(input:focus) .actionbar{display:none}
     }).join("") + '<b style="left:' + pct(d.start + endMin() * 60000).toFixed(1) + '%"></b>';
     return '<div class="day' + (d.stale ? " stale" : "") + '"><div class="dayhead"><b>' + (isToday ? "Sessions" : esc(dateLabel(d.start))) + '</b><button class="btn" id="edit-' + d.key + '" data-edit="' + d.key + '" aria-expanded="false" aria-controls="editor-' + d.key + '">Edit</button></div>' +
       '<div class="daymeta"><span class="muted">' + TCM.fmt(d.ms) + (d.breaks ? " · break " + TCM.fmt(d.breaks) : noBreak ? ' · <span class="warn">no break?</span>' : "") +
+      (origin ? ' · ' + esc(origin) : '') +
       (d.mark ? ' · <span class="mark">' + (d.mark === "half" ? "half day" : "day off") + '</span>' : "") + '</span></div><div class="bar" aria-hidden="true">' + bar + '</div>' +
       d.sessions.map(function (s) {
         return '<div class="readsess"><span>' + (s.start == null ? "Missing start" : TCM.hhmm(s.start)) + '–' + (s.end == null ? (s.stale ? "Missing end" : "Now") : TCM.hhmm(s.end)) + '</span><span class="muted">' + (s.open && !s.stale ? "Running" : s.stale ? "Needs correction" : s.orphan ? "Missing clock-in" : TCM.fmt(s.ms)) + '</span></div>';
@@ -432,7 +445,7 @@ body:has(input:focus) .actionbar{display:none}
         return '<div class="sess">' + timeInput(d.key, "in", s.start, i) + timeInput(d.key, "out", s.end, i) +
           (spansLunch ? '<button class="x" data-split="' + d.key + '">Add lunch break</button>' : "") +
           '<button class="x" aria-label="Delete session ' + (i + 1) + ' on ' + esc(dateLabel(d.start)) + '" data-del data-start="' + (s.start == null ? "" : s.start) + '" data-end="' + (s.end == null ? "" : s.end) + '">Delete</button></div>';
-      }).join("") + (d.sessions.length ? '<p class="editor-note">Add lunch break records 12:00–14:00; adjust the times afterward.</p>' : '<p class="editor-note">No punches on this marked day.</p>') + '</div></div>';
+      }).join("") + (d.sessions.length ? '<p class="editor-note">Add lunch break records 12:00–14:00; adjust the times afterward.</p>' : '<p class="editor-note">No punches on this marked day.</p>') + (d.sessions.length ? '<button class="btn" data-reviewed="' + d.key + '">Confirm day’s times</button>' : '') + '</div></div>';
   }
   function timeInput(day, k, t, i) {
     return '<label>' + (k === "in" ? "Clock in" : "Clock out") + '<input id="time-' + day + '-' + i + '-' + k + '" type="time" data-day="' + day + '" data-k="' + k + '" data-t="' + (t == null ? "" : t) + '" value="' + (t == null ? "" : TCM.hhmm(t)) + '"></label>';
@@ -455,6 +468,9 @@ body:has(input:focus) .actionbar{display:none}
     if (select.selectedIndex < 0) select.selectedIndex = select.options.length - 1;
     var text = select.options[select.selectedIndex].textContent;
     if ($("trendValue").textContent !== text) $("trendValue").textContent = text;
+    var start = +select.value, now = Date.now();
+    var list = TCM.days(events, now, marks()).filter(function (d) { return d.start >= start && d.start < TCM.shiftDays(start, 7); });
+    $("trendDays").innerHTML = list.length ? list.map(dayButton).join(' ') : '<p class="muted small">No days recorded this week.</p>';
     $("trend").querySelectorAll("[data-week]").forEach(function (bar) { bar.setAttribute("aria-pressed", String(bar.dataset.week === select.value)); });
   }
   $("trend").addEventListener("change", function () { showTrend(); });
@@ -462,6 +478,24 @@ body:has(input:focus) .actionbar{display:none}
   $("trend").addEventListener("keydown", function (e) {
     var bar = e.target.closest("[data-week]");
     if (bar && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); showTrend(bar.dataset.week); }
+  });
+
+  $("trendPeriod").onchange = function () { render(); };
+  $("reviewShortcut").onclick = function () {
+    $("trends").open = true; $("reviewHeading").focus(); $("reviewHeading").scrollIntoView({ block: "start" });
+  };
+  document.querySelector("main").addEventListener("click", function (e) {
+    var jump = e.target.closest("[data-jump]"), confirmDay = e.target.closest("[data-reviewed]");
+    if (jump) {
+      var button = $("edit-" + jump.dataset.jump);
+      if (!button) return;
+      var week = button.closest("details"); if (week) week.open = true;
+      toggleEditor(jump.dataset.jump, true); button.focus({ preventScroll: true }); button.scrollIntoView({ block: "center" });
+    }
+    if (confirmDay) {
+      events.forEach(function (event) { if (TCM.dayKey(event.t) === confirmDay.dataset.reviewed) event.reviewed = true; });
+      save();
+    }
   });
 
   // --- actions
@@ -488,14 +522,14 @@ body:has(input:focus) .actionbar{display:none}
     var el = e.target;
     if (!el.dataset.day || el.type !== "time" || !el.value) return;
     var t = at(el.dataset.day, el.value), i = el.dataset.t === "" ? -1 : find(el.dataset.k, +el.dataset.t);
-    if (i < 0) events.push({ k: el.dataset.k, t: t }); else events[i].t = t;
+    if (i < 0) events.push({ k: el.dataset.k, t: t, source: "reviewed" }); else { events[i].t = t; events[i].source = "reviewed"; delete events[i].reviewed; }
     save();
   });
   document.querySelector("main").addEventListener("click", function (e) {
     var el = e.target.closest("[data-split]");
     if (!el) return;
     var l = lunch(el.dataset.split);
-    events.push({ k: "out", t: l[0] }, { k: "in", t: l[1] });
+    events.push({ k: "out", t: l[0], source: "manual" }, { k: "in", t: l[1], source: "manual" });
     save();
   });
   document.querySelector("main").addEventListener("click", function (e) {
@@ -523,7 +557,7 @@ body:has(input:focus) .actionbar{display:none}
   $("addDay").onclick = function () {
     var day = $("addDate").value;
     if (!day) return;
-    events.push({ k: "in", t: at(day, "09:00") }, { k: "out", t: at(day, "17:00") });
+    events.push({ k: "in", t: at(day, "09:00"), source: "manual" }, { k: "out", t: at(day, "17:00"), source: "manual" });
     save();
     var button = $("edit-" + day);
     if (button) {
@@ -562,21 +596,20 @@ body:has(input:focus) .actionbar{display:none}
     var rows = TCM.days(events, now, marks()).reverse().map(function (d) {
       var f = d.sessions[0], l = d.sessions[d.sessions.length - 1], dl = TCM.delta([d], dailyMs(), now);
       return [d.key, d.mark || "", f && f.start != null ? TCM.hhmm(f.start) : "", l && l.end != null ? TCM.hhmm(l.end) : "",
-        h(d.breaks), h(d.ms), dl.n ? h(dl.ms) : ""].join(",");
+        h(d.breaks), h(d.ms), dl.n ? h(dl.ms) : "", TCM.reasons(d).join("; "), d.sessions.some(function (s) { return s.origins.some(function (v) { return !v; }); }) ? "unknown" : [].concat.apply([], d.sessions.map(function (s) { return s.origins; })).filter(function (v, i, a) { return a.indexOf(v) === i; }).join("; ")].join(",");
     });
-    download(["date,mark,first_in,last_out,break_h,worked_h,vs_target_h"].concat(rows).join("\n"), "text/csv", "csv");
+    download(["date,mark,first_in,last_out,break_h,worked_h,vs_target_h,review_flags,origins"].concat(rows).join("\n"), "text/csv", "csv");
   };
   $("importPick").onclick = function () { $("import").click(); };
   $("import").onchange = function () {
     var f = this.files[0]; this.value = "";
     if (!f) return;
     f.text().then(function (txt) {
-      var doc = TCMSync.parse(txt), seen = {}, merged = [];
+      var doc = TCMSync.parse(txt);
       events.concat(doc.events).forEach(function (e) {
         if (!e || (e.k !== "in" && e.k !== "out") || typeof e.t !== "number" || !isFinite(e.t)) throw new Error("bad event");
-        if (!seen[e.k + e.t]) { seen[e.k + e.t] = 1; merged.push({ k: e.k, t: e.t }); }
       });
-      events = merged;
+      events = TCMSync.union(events, doc.events);
       setExtra(TCMSync.mergeExtra(getExtra(), doc.extra));
       save();
     }).catch(function (err) { alert("Import failed: " + err.message); });

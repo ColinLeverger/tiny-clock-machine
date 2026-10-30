@@ -13,8 +13,13 @@ var TCMSync = (function (root) {
   function union(a, b) {
     var seen = {}, out = [];
     a.concat(b).forEach(function (e) {
-      if (!e || (e.k !== "in" && e.k !== "out") || typeof e.t !== "number") return;
-      if (!seen[e.k + e.t]) { seen[e.k + e.t] = 1; out.push({ k: e.k, t: e.t }); }
+      if (!e || (e.k !== "in" && e.k !== "out") || typeof e.t !== "number" || !isFinite(e.t)) return;
+      var key = e.k + e.t, old = seen[key];
+      var source = /^(recorded|typical|capped|manual|reviewed)$/.test(e.source) ? e.source : null;
+      if (!old) { old = { k: e.k, t: e.t }; seen[key] = old; out.push(old); }
+      // A reviewed timestamp wins; an older client without metadata cannot erase its origin.
+      if (source && old.source !== "reviewed") old.source = source;
+      if (e.reviewed === true) old.reviewed = true;
     });
     return out;
   }
@@ -26,9 +31,10 @@ var TCMSync = (function (root) {
   // ponytail: both devices moving the same punch keeps both times; the extra
   // one shows up as an open or orphan row in the history, to fix by hand.
   function merge(base, local, remote) {
-    var inBase = keys(base), inLocal = keys(local);
+    var inBase = keys(base), inLocal = keys(local), inRemote = keys(remote);
+    var baseSource = {}; base.forEach(function (e) { baseSource[e.k + e.t] = [e.source, !!e.reviewed].join(":"); });
     var kept = remote.filter(function (e) { return !(inBase[e.k + e.t] && !inLocal[e.k + e.t]); });
-    return union(kept, local.filter(function (e) { return !inBase[e.k + e.t]; }));
+    return union(kept, local.filter(function (e) { return !inBase[e.k + e.t] || (inRemote[e.k + e.t] && [e.source, !!e.reviewed].join(":") !== baseSource[e.k + e.t]); }));
   }
   // What travels with the punches: settings {target, end, since} and day
   // marks {dayKey: "off"|"half"}. Anything odd is dropped.
