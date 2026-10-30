@@ -1,0 +1,98 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tiny Clock UI checks</title>
+<style>body{font:16px system-ui}iframe{border:1px solid #ccc;width:390px;height:844px}pre{white-space:pre-wrap}</style>
+<h1>Tiny Clock UI checks</h1>
+<p>Serve the repo and open this page. Fixtures use an in-memory store; your punches are untouched.</p>
+<pre id="results">Running…</pre><iframe title="App fixture"></iframe>
+<script>
+(async function () {
+  var frame = document.querySelector("iframe"), output = document.querySelector("pre"), passed = [], errors = [];
+  var html = await (await fetch("../index.html")).text();
+  function check(ok, message) { if (!ok) throw new Error(message); passed.push(message); }
+  async function mount(events, hour) {
+    var seed = JSON.stringify({ "tcm-events": JSON.stringify(events || []) });
+    var bootstrap = "<base href='" + new URL("../", location.href).href + "'><script>" +
+      "var store=" + seed + ";Object.defineProperty(window,'localStorage',{value:{getItem:k=>store[k]??null,setItem:(k,v)=>store[k]=String(v),removeItem:k=>delete store[k]}});" +
+      "var RealDate=Date;window.testNow=new RealDate(2026,9,30," + hour + ",0).getTime();window.Date=class extends RealDate{constructor(...a){super(...(a.length?a:[window.testNow]))}static now(){return window.testNow}};" +
+      "window.setInterval=fn=>window.tick=fn;window.confirm=()=>true;window.uiErrors=[];window.addEventListener('error',e=>uiErrors.push(e.message));" +
+      "<" + "/script>";
+    await new Promise(function (resolve) {
+      frame.onload = resolve;
+      frame.srcdoc = html.replace("<head>", "<head>" + bootstrap).replace('if ("serviceWorker" in navigator)', 'if (false)');
+    });
+    var w = frame.contentWindow;
+    check(w.uiErrors.length === 0, "App loads without errors at " + hour + ":00");
+    return w;
+  }
+  function at(day, hour) { return new Date(2026,9,day,hour,0).getTime(); }
+  function punches(w) { return JSON.parse(w.localStorage.getItem("tcm-events") || "[]"); }
+  function click(w, selector) { w.document.querySelector(selector).click(); }
+  window.mountFixture = mount;
+  try {
+    var w = await mount([], 16), d = w.document;
+    check(d.querySelector("#punch").textContent === "Record typical day", "Typical-day action has an explicit label");
+    check(d.querySelector("#actionHint").textContent.includes("09:00–12:00"), "Typical-day hours are visible before punching");
+    click(w,"#punch"); check(punches(w).length === 4, "Typical day records four punches");
+    click(w,"#undo"); check(punches(w).length === 0 && d.querySelector("#toast").hidden, "Undo removes the entire typical day");
+    w = await mount([],9); d = w.document;
+    click(w,"#punch"); check(punches(w).length === 1 && d.querySelector("#todayState").textContent.includes("Clocked in"), "Morning clock-in updates today's state");
+    w.testNow += 3600000; w.tick();
+    check(d.querySelector("#todayTotal").textContent === "1h00", "Timer updates today's total");
+    click(w,"#punch"); check(punches(w).length === 2, "Clock-out closes the running session");
+    w = await mount([{k:"in",t:at(30,9)}],20); d = w.document;
+    check(d.querySelector("#punch").textContent === "Clock out at 18:30", "Capped clock-out names the recorded time");
+    click(w,"#punch"); check(new Date(punches(w)[1].t).getHours() === 18, "Clock-out still respects the day-end cap");
+    w = await mount([{k:"in",t:at(29,9)},{k:"out",t:at(29,17)},{k:"in",t:at(30,9)}],16); d = w.document;
+    check(d.querySelectorAll(".editor:not([hidden])").length === 0, "Session editors start hidden");
+    click(w,"#edit-2026-10-30");
+    var input = d.querySelector("#time-2026-10-30-0-in");
+    input.value = "09:30"; input.dispatchEvent(new w.Event("change",{bubbles:true}));
+    check(new Date(punches(w)[2].t).getMinutes() === 30, "Time edits persist");
+    check(!d.querySelector("#editor-2026-10-30").hidden, "Day editor stays open after saving");
+    input = d.querySelector("#time-2026-10-30-0-in"); input.focus(); w.tick();
+    check(d.activeElement === input, "Refresh preserves the focused time input");
+    input.blur(); var edit = d.querySelector("#edit-2026-10-30"); edit.focus(); w.tick();
+    check(d.activeElement === edit && !d.querySelector("#editor-2026-10-30").hidden, "Refresh preserves editor and button focus");
+    click(w,"#edit-2026-10-30");
+    var week = d.querySelector("#history details"); week.open = false;
+    w.tick(); check(!week.open, "Refresh keeps a collapsed history week closed");
+    click(w,"#edit-2026-10-30"); click(w,"#todaySessions [data-split]");
+    check(punches(w).length === 5, "Adding lunch inserts the two break punches");
+    click(w,"#todaySessions [data-del]"); check(punches(w).length === 3, "Delete removes only the selected session");
+    d.querySelector("#trends").open = true;
+    var bar = d.querySelector("[data-week]"); bar.dispatchEvent(new w.KeyboardEvent("keydown",{key:"Enter",bubbles:true}));
+    check(d.querySelector("#trendWeeks").value === bar.dataset.week && d.querySelector("#trendValue").textContent, "Chart keyboard selection shows week details");
+    d.querySelectorAll("details").forEach(el=>el.open=true);
+    for (var width of [320,375,390,430,844]) {
+      frame.style.width = width + "px";
+      check(d.documentElement.scrollWidth <= w.innerWidth, "No horizontal overflow at " + width + "px");
+    }
+    frame.style.width="390px";
+    d.documentElement.style.fontSize="200%"; d.body.style.fontSize="32px";
+    check(d.documentElement.scrollWidth <= w.innerWidth, "No horizontal overflow with 200% text");
+    d.documentElement.style.fontSize=""; d.body.style.fontSize="";
+    var controls = Array.from(d.querySelectorAll("button,input:not([hidden]),summary,select")).filter(el=>el.getBoundingClientRect().height);
+    check(controls.every(el=>el.getBoundingClientRect().height>=44), "Visible controls have at least 44px height");
+    check(d.querySelector("#syncOn").hidden && !d.querySelector("#syncForm").hidden, "Disconnected backup shows only the connection form");
+    var repo=d.querySelector("#syncRepo"); repo.focus();
+    check(w.getComputedStyle(d.querySelector(".actionbar")).display === "none", "Clock action moves out of the way during form editing"); repo.blur();
+    check(w.getComputedStyle(d.querySelector(".actionbar")).display !== "none", "Clock action returns after editing");
+    click(w,"[data-since]"); check(w.localStorage.getItem("tcm-since") && d.querySelector("#balance").textContent.includes("since"), "Balance period remains editable");
+    d.querySelector("#addDate").value="2026-10-28"; click(w,"#addDay");
+    check(!d.querySelector("#editor-2026-10-28").hidden, "Adding a day opens its editor");
+    click(w,"#markHalf"); check(JSON.parse(w.localStorage.getItem("tcm-days"))["2026-10-28"] === "half", "Half-day marks still save");
+    click(w,"#markHalf"); check(!JSON.parse(w.localStorage.getItem("tcm-days"))["2026-10-28"], "Tapping a day mark again removes it");
+    check(w.uiErrors.length===0, "Interactions produce no browser errors");
+    w = await mount([{k:"in",t:at(30,9)}],16); d=w.document;
+    w.testNow=at(31,9); w.tick();
+    check(d.querySelector("#todaySessions").textContent.includes("No sessions"), "Midnight refresh moves yesterday out of today's sessions");
+    output.textContent = passed.length + " checks passed\n" + passed.join("\n");
+    window.testResult={passed:passed.length,errors:[]};
+  } catch (error) {
+    errors.push(error.stack); output.textContent=passed.join("\n")+"\nFAIL: "+error.stack;
+    window.testResult={passed:passed.length,errors:errors};
+  }
+})();
+</script>

@@ -34,31 +34,37 @@ On a phone: open the Pages URL, **Add to Home Screen**. That is the PWA.
 
 ## Using it
 
-- **Clock in / Clock out** — the big button. It is green when you are out,
-  red when you are in. The line under it shows since when, today's total and
-  when you can **leave** to meet the daily target. Forgot the whole day? The
+- **Clock in / Clock out** — the big button stays at the bottom, within thumb
+  reach and above the iPhone home indicator. It is green when you are out,
+  red when you are in. Today's total is the main number, with your current
+  state and the time you can **leave** to meet the daily target. The button
+  moves out of the way while a form input is focused. Forgot the whole day? The
   first press after **14:00** (device local time) records a typical day —
-  09:00–12:00, 14:00–now — so that press is your evening clock-out. A day
+  09:00–12:00, 14:00–now — so that press is your evening clock-out. The button
+  says **Record typical day** and shows the hours before you tap. A day
   never ends after the **Day ends** time (in *⚙ Settings*, 18:30 by
-  default): a press at 20:40 clocks you out at 18:30, a forgotten clock-out
-  is not two extra hours. Fix the times in the history if they were off.
+  default): a press at 20:40 says **Clock out at 18:30**. A forgotten
+  clock-out is not two extra hours. Fix the times in the day editor if they
+  were off.
   Every press shows what it recorded for a few seconds, with an **Undo**
   button: a mis-tap, or the whole typical day, comes back out in one tap.
-- **Tiles** — today (with the break length), this week (with its ± against
-  the target), average of the last four full weeks, and the **balance**:
+- **Tiles** — this week (with its ± against the target), and the **balance**:
   hours worked minus the target, summed over every closed day with work.
   "Day" means a day with at least one closed session. Tap the balance tile
   to count it from today on, and again to go back to all time: an all-time
   balance stops meaning anything after a year.
-- **Trend** — the last twelve weeks as bars, the weekly target as a dashed
-  line, the running week lighter. Hover or long-press a bar for its numbers.
+- **Trends** — expand to see the average of the last four full weeks and
+  twelve weeks as bars, with the weekly target as a dashed line and the
+  running week lighter. Tap a bar, use Enter/Space, or pick a week from the
+  dropdown to show its numbers.
 - **Target** — hours per week, in *⚙ Settings* (default 39). A fifth of it
   is the daily target behind *leave at*, the week's ± and the balance. Today
   is left out of the balance while it runs. A day without work costs
   nothing, so holidays and sick days need no bookkeeping — the balance
   answers "do I work more than a normal day on the days I work", not "how
   many days off have I banked".
-- **Half day / Day off** — pick a date, press one of them (again to unmark).
+- **Half day / Day off** — expand *Add a day / mark time off*, pick a date,
+  press one of them (again to unmark).
   A *half day* expects half the daily target, so four hours on it count
   +0h06 instead of −3h48, and it counts even with no work: the other half
   was due. A *day off* expects nothing, so any work on it is all extra. A
@@ -67,13 +73,16 @@ On a phone: open the Pages URL, **Add to Home Screen**. That is the PWA.
   while you are clocked in, so a glance at the phone at 21:00 says you
   forgot. Installed app only; iOS and Android draw it once you allow
   notifications, which is all that button asks.
-- **History** — one block per week (Monday start), one row per session.
+- **Today's sessions / History** — today's sessions appear first, followed
+  by earlier days grouped by week (Monday start), one row per session.
   Each day has a bar from 06:00 to 20:00, one block per session: a long
   single block is a forgotten lunch, hatched is still open, the thin tick is
   the day-end cap.
-  Every time is an `<input type="time">`: tap it to correct a punch. `×`
-  deletes a session. A session that runs through lunch has a `✂`: it clocks
-  you out at 12:00 and back in at 14:00, then fix the times. A day of six
+  Tap **Edit** on a day to correct times using native time inputs; changes
+  save automatically. **Done** closes the editor. **Delete** removes a
+  session after confirmation. **Add lunch break** clocks you out at 12:00
+  and back in at 14:00, then fix the times. Editors and focus stay in place
+  during the 30-second counter refresh. A day of six
   hours or more with no break is flagged *no break?*, since that is nearly
   always a forgotten lunch. **+ Add day** inserts a 09:00–17:00 session on
   the chosen date for days you forgot entirely, then fix the times.
@@ -180,6 +189,15 @@ manifest.webmanifest  PWA install
 icons/                app icons
 .github/workflows     runs the test, deploys to GitHub Pages on push to main
 ```
+
+## UI checks
+
+Run `node --test tests/clock.test.js tests/sync.test.js` for clock and sync
+logic. With the local server running, open `http://localhost:8000/tests/ui.html`
+for browser checks covering punches, Undo, time edits, lunch splits, deletion,
+focus preservation, chart selection, narrow widths and larger text. Fixtures
+use in-memory storage and leave your punches untouched. Check the installed
+PWA on a real iPhone for safe areas, the native time picker and keyboard behavior.
 
 ## Licence
 

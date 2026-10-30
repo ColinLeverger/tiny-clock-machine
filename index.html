@@ -13,17 +13,60 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <style>
-:root{--bg:#f4f5f7;--panel:#fff;--ink:#1b1f24;--muted:#6b7280;--line:#e3e6ea;--line2:#cdd2d8;
-  --head:#2b3440;--accent:#2f5fb3;--ok:#2f8f3f;--ok-d:#25722f;--no:#c0392b;--no-d:#992d22;--warn:#c4621b;
+:root{--bg:#f4f5f7;--panel:#fff;--ink:#1b1f24;--muted:#626b79;--line:#e3e6ea;--line2:#cdd2d8;
+  --head:#2b3440;--accent:#2f5fb3;--ok:#2f8f3f;--ok-d:#25722f;--no:#c0392b;--no-d:#992d22;--warn:#a34d10;--ok-text:#25722f;--danger-text:#c0392b;
   --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color-scheme:light dark}
-@media (prefers-color-scheme:dark){:root{--bg:#15191e;--panel:#1e242b;--ink:#e6e9ed;--muted:#8d97a3;--line:#2c343d;--line2:#3b4552;--head:#0f1317;--accent:#7fa6e8}}
+@media (prefers-color-scheme:dark){:root{--bg:#15191e;--panel:#1e242b;--ink:#e6e9ed;--muted:#8d97a3;--line:#2c343d;--line2:#3b4552;--head:#0f1317;--accent:#7fa6e8;--warn:#eaa269;--ok-text:#83d590;--danger-text:#f08375}}
 *{box-sizing:border-box}
 html,body{margin:0}
-body{font-family:var(--sans);color:var(--ink);background:var(--bg);font-size:15px;line-height:1.4}
+html{scroll-padding-top:calc(5rem + env(safe-area-inset-top,0px));scroll-padding-bottom:14rem}
+body{font-family:var(--sans);color:var(--ink);background:var(--bg);font-size:16px;line-height:1.45}
 .topbar{position:sticky;top:0;z-index:2;background:var(--head);color:#fff;font-weight:700;letter-spacing:.04em;
   padding:.65rem 1rem;padding-top:calc(.65rem + env(safe-area-inset-top,0px))}
 .topbar small{font-weight:400;opacity:.7;letter-spacing:0;margin-left:.3rem}
-main{max-width:520px;margin:0 auto;padding:1rem;padding-bottom:calc(2rem + env(safe-area-inset-bottom,0px))}
+main{max-width:560px;margin:0 auto;padding:1rem;padding-bottom:calc(14rem + env(safe-area-inset-bottom,0px))}
+.topbar{padding-left:max(1rem,env(safe-area-inset-left,0px));padding-right:max(1rem,env(safe-area-inset-right,0px))}
+main{padding-left:max(1rem,env(safe-area-inset-left,0px));padding-right:max(1rem,env(safe-area-inset-right,0px))}
+button,input,summary{-webkit-tap-highlight-color:transparent}
+button,input,.btn,summary{min-height:44px}
+button,.btn,summary{touch-action:manipulation}
+:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+[hidden]{display:none!important}
+.today{text-align:center;padding:1rem 0 .5rem}
+.today h1{font-size:1rem;font-weight:500;color:var(--muted);margin:0}
+#todayTotal{font-size:clamp(3rem,15vw,4.5rem);font-weight:750;letter-spacing:-.05em;line-height:1.2;margin:.5rem 0;font-variant-numeric:tabular-nums}
+#todayState{font-weight:600;margin:0}
+#todayState.running{color:var(--ok-text)}
+#todayHint{color:var(--muted);margin:.4rem 0}
+.actionbar{position:fixed;bottom:0;left:0;right:0;z-index:3;background:var(--panel);border-top:1px solid var(--line);padding:.6rem max(1rem,env(safe-area-inset-right,0px)) calc(.6rem + env(safe-area-inset-bottom,0px)) max(1rem,env(safe-area-inset-left,0px))}
+.actionbar-inner{max-width:528px;margin:auto}
+#actionHint{font-size:.85rem;color:var(--muted);text-align:center;margin:0 0 .5rem}
+#actionHint:empty{display:none}
+.sectionhead{display:flex;justify-content:space-between;align-items:center;margin:1.2rem 0 .5rem}
+.sectionhead h2{margin:0}
+#todaySessions .day{border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+.dayhead{align-items:center;flex-wrap:wrap}
+.daymeta{display:flex;flex-wrap:wrap;gap:.3rem;align-items:center;justify-content:space-between}
+.daymeta>.muted{font-size:.85rem}
+.readsess{display:flex;justify-content:space-between;gap:.5rem;padding:.55rem 0;font-variant-numeric:tabular-nums}
+.editor{margin-top:.5rem;padding-top:.5rem;border-top:1px solid var(--line)}
+.editor label{display:flex;flex-direction:column;gap:.25rem;color:var(--muted);font-size:.85rem;min-width:0}
+.sess{flex-wrap:wrap}
+.sess input[type=time]{min-width:0;width:100%;font-size:1rem}
+.sess label{flex:1 1 6rem}
+.sess .x{min-width:44px;min-height:44px;border:1px solid var(--line2);border-radius:7px;padding:.4rem .6rem;font-size:.9rem}
+.sess .x[data-del]{color:var(--danger-text)}
+.editor-note{margin:.3rem 0 .6rem;font-size:.85rem;color:var(--muted)}
+.tile{min-width:0;text-align:left}
+button.tile{cursor:pointer;width:100%;font:inherit;color:inherit}
+.tile .k,.tile .v,.tile .s{display:block}
+.tile .s{overflow-wrap:anywhere}
+.trend-select{width:100%;max-width:100%;font:inherit;color:inherit;background:var(--panel);border:1px solid var(--line2);border-radius:7px;padding:.5rem;margin-top:.5rem;min-height:44px}
+.trend [data-week]{cursor:pointer}
+.trend [data-week][aria-pressed=true] rect{fill:var(--ok)}
+.trend .k{margin-top:1rem}
+#trendValue{margin:.6rem 0 0}
+@media(max-height:500px){.actionbar{position:sticky}.topbar{position:static}main{padding-bottom:1rem}}
 .muted{color:var(--muted)}
 .small{font-size:.85em}
 .warn{color:var(--warn)}
@@ -51,7 +94,10 @@ button,input{font:inherit;color:inherit}
 .trend line.target{stroke-dasharray:3 3}
 details{background:var(--panel);border:1px solid var(--line);border-radius:10px;margin-bottom:.6rem}
 summary{cursor:pointer;padding:.6rem .75rem;display:flex;justify-content:space-between;gap:.5rem;font-weight:600}
+summary{align-items:center;flex-wrap:wrap}
 summary .s{font-weight:400;color:var(--muted)}
+summary::after{content:"⌄";margin-left:auto;color:var(--muted)}
+details[open]>summary::after{transform:rotate(180deg)}
 .day{border-top:1px solid var(--line);padding:.5rem .75rem}
 .day.stale .dayhead b{color:var(--warn)}
 .dayhead{display:flex;justify-content:space-between;gap:.5rem}
@@ -64,49 +110,69 @@ summary .s{font-weight:400;color:var(--muted)}
 .bar b{width:1px;background:var(--muted);opacity:.6}
 .sess{display:flex;align-items:center;gap:.4rem;padding:.25rem 0}
 .sess input[type=time]{border:1px solid var(--line2);border-radius:6px;padding:.2rem .3rem;background:var(--panel)}
-.sess .d{flex:1;text-align:right;color:var(--muted)}
-.sess .x{border:0;background:none;color:var(--muted);cursor:pointer;font-size:1.1em;padding:0 .3rem}
+.sess .x{background:none;color:var(--muted);cursor:pointer}
 .sess .x:hover{color:var(--no)}
 .sess .x[data-split]:hover{color:var(--accent)}
 .tools{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin:1.4rem 0 .6rem}
-.tools input[type=date]{border:1px solid var(--line2);border-radius:7px;padding:.35rem .5rem;background:var(--panel)}
+.tools input[type=date]{max-width:100%;border:1px solid var(--line2);border-radius:7px;padding:.35rem .5rem;background:var(--panel)}
 .pad{border-top:1px solid var(--line);padding:.6rem .75rem;display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
-.pad input[type=number],.pad input[type=time]{border:0;background:none;padding:0;font-weight:600}
-.pad input[type=number]{width:3.4em;text-align:right}
-#syncBox input{border:1px solid var(--line2);border-radius:7px;padding:.35rem .5rem;background:var(--panel);flex:1;min-width:10em}
-.box .s.ok{color:var(--ok)}.box .s.error,.box .s.conflict{color:var(--no)}.box .s.dirty,.box .s.syncing{color:var(--warn)}
+.pad>.btn{max-width:100%}
+.pad input[type=number],.pad input[type=time]{max-width:100%;border:0;background:none;padding:0;font-weight:600}
+.pad input[type=number]{width:3.4em;max-width:100%;text-align:right}
+#syncBox input{border:1px solid var(--line2);border-radius:7px;padding:.35rem .5rem;background:var(--panel);flex:1 1 12rem;min-width:0;width:100%}
+.box .s.ok{color:var(--ok-text)}.box .s.error,.box .s.conflict{color:var(--danger-text)}.box .s.dirty,.box .s.syncing{color:var(--warn)}
 h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:1.4rem 0 .5rem}
 #foot{margin-top:1rem}
-#toast{position:fixed;left:50%;bottom:calc(1.2rem + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:3;display:flex;gap:.8rem;
-  align-items:center;white-space:nowrap;background:var(--head);color:#fff;border-radius:10px;padding:.55rem .9rem;box-shadow:0 3px 12px rgba(0,0,0,.3)}
+#toast{display:flex;gap:.8rem;align-items:center;max-width:100%;overflow-wrap:anywhere;background:var(--head);color:#fff;border-radius:10px;padding:.55rem .9rem;margin:0 0 .6rem}
+#toastText{flex:1;min-width:0}
+#toast .btn{flex-shrink:0}
+body:has(input:focus) .actionbar{display:none}
 #toast[hidden]{display:none}
 #toast .btn{background:transparent;color:#fff;border-color:rgba(255,255,255,.5)}
+@media(max-width:360px){.topbar small{display:none}.tiles{gap:.5rem}.tile{padding:.6rem}.tile .v{font-size:1.3em}}
 </style>
 </head>
 <body>
 <header class="topbar">⏱ Tiny Clock Machine <small>in · lunch · out</small></header>
 <main>
-  <button id="punch" class="big">Clock in</button>
-  <p id="status" class="muted"></p>
+  <section class="today" aria-labelledby="todayDate">
+    <h1 id="todayDate">Today</h1>
+    <div id="todayTotal">0h00</div>
+    <p id="todayState"></p>
+    <p id="todayHint"></p>
+    <p id="status" class="muted small"></p>
+  </section>
   <p id="backup" class="warn" hidden></p>
 
   <div class="tiles" id="tiles"></div>
-  <div class="trend" id="trend"></div>
+  <section aria-labelledby="todaySessionsHeading">
+    <div class="sectionhead"><h2 id="todaySessionsHeading">Today’s sessions</h2></div>
+    <div id="todaySessions"></div>
+  </section>
 
   <h2>History</h2>
   <div id="history"></div>
 
-  <div class="tools">
-    <input type="date" id="addDate">
+  <details id="trends">
+    <summary>Trends</summary>
+    <div class="trend" id="trend"></div>
+  </details>
+  <details id="dayTools">
+    <summary>Add a day / mark time off</summary>
+    <div class="tools pad">
+    <label>Date <input type="date" id="addDate"></label>
     <button class="btn" id="addDay" title="Add a 09:00–17:00 session on that day, then fix the times">+ Add day</button>
     <button class="btn" id="markHalf" title="Half a day expected on that date (a half day of leave). Press again to unmark">Half day</button>
     <button class="btn" id="markOff" title="Nothing expected on that date: any work on it is extra. Press again to unmark">Day off</button>
+    <p class="muted small">Add day records 09:00–17:00; edit the times afterward. Half day halves the expected hours. Day off expects none. Tap the same mark again to remove it.</p>
   </div>
-  <details class="box">
+  </details>
+  <details class="box" id="settings">
     <summary><span>⚙ Settings</span><span class="s" id="setState"></span></summary>
     <div class="pad">
       <label class="btn" title="Hours per week. Each worked day is compared with a fifth of it">Target <input type="number" id="target" min="1" max="99" step="0.5"> h/wk</label>
       <label class="btn" title="A day never ends later than this. A press after it clocks you out at this time">Day ends <input type="time" id="dayEnd"></label>
+      <p class="muted small">The daily target is one fifth of your weekly hours. Clock-outs after “Day ends” use that time instead of now.</p>
       <button class="btn" id="badge" hidden title="Show a dot on the app icon while clocked in">● Badge on icon</button>
     </div>
   </details>
@@ -115,15 +181,15 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
     <div class="pad">
       <button class="btn" id="export">Export JSON</button>
       <button class="btn" id="exportCsv">Export CSV</button>
-      <label class="btn">Import JSON <input type="file" id="import" accept="application/json,.json" hidden></label>
+      <button class="btn" id="importPick">Import JSON</button><input type="file" id="import" accept="application/json,.json" hidden>
       <p class="muted small" style="flex-basis:100%;margin:0">JSON holds everything: punches, settings, day marks. Import merges, it never wipes. CSV is one row per day, for a spreadsheet.</p>
     </div>
   </details>
   <details class="box" id="syncBox">
     <summary><span>☁ GitHub backup</span><span class="s" id="syncState">Not connected</span></summary>
     <div class="pad" id="syncForm">
-      <input id="syncRepo" placeholder="owner/private-repo" autocapitalize="none" autocorrect="off">
-      <input id="syncToken" type="password" placeholder="github_pat_…" autocomplete="off">
+      <input aria-label="GitHub repository (owner/repository)" id="syncRepo" placeholder="owner/private-repo" autocapitalize="none" autocorrect="off">
+      <input aria-label="GitHub access token" id="syncToken" type="password" placeholder="github_pat_…" autocomplete="off">
       <button class="btn" id="syncConnect">Connect</button>
       <p class="muted small" style="flex-basis:100%;margin:0">A private repo and a fine-grained token with <i>Contents: read and write</i> on that repo only. Punches, settings and day marks are pushed to <code>tiny-clock.json</code> after every change and loaded back when this browser is empty.</p>
     </div>
@@ -135,7 +201,11 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
     </div>
   </details>
   <p class="muted small" id="foot"></p>
-  <div id="toast" hidden><span id="toastText"></span><button class="btn" id="undo">Undo</button></div>
+  <div class="actionbar"><div class="actionbar-inner">
+    <div id="toast" role="status" hidden><span id="toastText"></span><button class="btn" id="undo">Undo</button></div>
+    <p id="actionHint"></p>
+    <button id="punch" class="big" aria-describedby="actionHint">Clock in</button>
+  </div></div>
 </main>
 
 <script src="js/clock.js"></script>
@@ -210,8 +280,10 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
   function find(k, t) { for (var i = 0; i < events.length; i++) if (events[i].k === k && events[i].t === t) return i; return -1; }
   function avg(ms, n) { return n ? TCM.fmt(ms / n) : "–"; }
 
-  function render() {
+  function render(refreshHistory) {
     var now = Date.now(), today = TCM.dayKey(now);
+    var focused = document.activeElement, focusId = focused && focused.id;
+    if ($("todaySessions").dataset.day !== today) refreshHistory = true;
     var days = TCM.days(events, now, marks()), weeks = TCM.weeks(days);
     var inNow = TCM.clockedIn(events, now), next = TCM.punch(events, now, endMin()), nextOut = next[next.length - 1].k === "out";
     // A marked day can sit in the future, so today is looked up, not days[0].
@@ -219,20 +291,23 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
 
     // --- punch button + status line
     var b = $("punch");
-    b.textContent = nextOut ? "Clock out" : "Clock in";
+    b.textContent = next.length > 1 ? "Record typical day" : next[0].t !== now ? "Clock out at " + TCM.hhmm(next[0].t) : nextOut ? "Clock out" : "Clock in";
+    $("actionHint").textContent = next.length > 1 ? "Records 09:00–12:00 and 14:00–" + TCM.hhmm(next[next.length - 1].t) : next[0].t !== now ? "Your day-end limit applies to this clock-out." : "";
+    $("todayDate").textContent = "Today · " + dateLabel(now);
+    $("todayTotal").textContent = TCM.fmt(todayD ? todayD.ms : 0);
+    $("todayState").textContent = inNow ? "● Clocked in" : "Clocked out";
+    $("todayState").classList.toggle("running", inNow);
+    $("todayHint").textContent = inNow ? "Since " + TCM.hhmm(todayD.sessions[todayD.sessions.length - 1].start) + " · " + (leftHint()) : todayD && todayD.ms ? (leftHint()) : "Ready when you are";
+    function leftHint() {
+      var left = daily - (todayD ? todayD.ms : 0);
+      return left > 0 ? (inNow ? "Target reached at " + TCM.hhmm(now + left) : TCM.fmt(left) + " to target") : (left === 0 ? "Daily target reached" : TCM.fmt(-left) + " over target");
+    }
     b.classList.toggle("out", nextOut);
-    var st, left = daily - (todayD ? todayD.ms : 0);
-    if (inNow) {
-      var open = todayD.sessions[todayD.sessions.length - 1];
-      st = "Clocked in since " + TCM.hhmm(open.start) + " · today " + TCM.fmt(todayD.ms) +
-        (left > 0 ? " · leave at " + TCM.hhmm(now + left) : " · " + TCM.sfmt(-left) + " over target");
-      if (next[0].t !== now) st += '<br><span class="warn">Past ' + TCM.hhmm(next[0].t) + ": this button clocks you out at " + TCM.hhmm(next[0].t) + "</span>";
-    } else if (todayD && todayD.ms) st = "Clocked out · today " + TCM.fmt(todayD.ms) + " · " + (left > 0 ? TCM.fmt(left) + " to go" : TCM.sfmt(-left) + " over target");
-    else if (next.length > 1) st = "Nothing punched today · this button records a typical day: 09:00–12:00, 14:00–" + (next[3].t === now ? "now" : TCM.hhmm(next[3].t));
-    else st = "Not clocked in yet today";
+    var st = "";
     var stale = days.filter(function (d) { return d.stale; })[0];
-    if (stale) st += '<br><span class="warn">⚠ Missing clock-out on ' + esc(dateLabel(stale.start)) + ", fix it in the history</span>";
+    if (stale) st += '<span class="warn">⚠ Missing clock-out on ' + esc(dateLabel(stale.start)) + ", fix it in the history</span>";
     $("status").innerHTML = st;
+    $("status").hidden = !st;
 
     // --- stat tiles
     var byStart = {}; weeks.forEach(function (w) { byStart[w.start] = w; });
@@ -241,16 +316,12 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
     var pastMs = 0, pastDays = 0;
     past.forEach(function (w) { pastMs += w.ms; pastDays += w.days.filter(function (d) { return d.ms > 0; }).length; });
     var from = since(), bdays = days.filter(function (d) { return d.start >= from; });
-    var allMs = 0, allDays = 0;
-    bdays.forEach(function (d) { allMs += d.ms; if (d.ms > 0) allDays++; });
     var wd = thisWeek ? thisWeek.days.filter(function (d) { return d.ms > 0; }).length : 0;
     var wDelta = TCM.delta(thisWeek ? thisWeek.days : [], daily, now), balance = TCM.delta(bdays, daily, now);
-    $("tiles").innerHTML = [
-      tile("Today", todayD ? TCM.fmt(todayD.ms) : "0h00", todayD && todayD.breaks ? "break " + TCM.fmt(todayD.breaks) : ""),
+    if (refreshHistory !== false || !document.activeElement.closest("#tiles")) $("tiles").innerHTML = [
       tile("This week", thisWeek ? TCM.fmt(thisWeek.ms) : "0h00", wd + " day" + (wd === 1 ? "" : "s") + (wDelta.n ? " · " + TCM.sfmt(wDelta.ms) + " vs target" : "")),
-      tile("Last " + past.length + " week" + (past.length === 1 ? "" : "s"), avg(pastMs, past.length) + "/wk", "avg " + avg(pastMs, pastDays) + "/day"),
-      tile("Balance", TCM.sfmt(balance.ms), (from ? "since " + shortDate(from) : "all time") + " · " + allDays + " day" + (allDays === 1 ? "" : "s") + " · avg " + avg(allMs, allDays) + " vs " + TCM.fmt(daily),
-        ' data-since title="Tap to count the balance from today on, or back to all time"')
+      tile("Balance", TCM.sfmt(balance.ms), (from ? "since " + shortDate(from) : "all time") + " · change period",
+        ' id="balance" data-since aria-label="Balance ' + TCM.sfmt(balance.ms) + '. Change balance period"')
     ].join("");
     $("setState").textContent = target() + " h/wk · ends " + endHHMM();
 
@@ -258,13 +329,36 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
     var cols = [], ws0 = TCM.weekStart(now);
     for (var i = 11; i >= 0; i--) { var s = TCM.weekStart(ws0 - i * 7 * TCM.DAY + 3 * TCM.DAY); cols.push(byStart[s] || { start: s, ms: 0, days: [] }); }
     var top = cols.reduce(function (m, w) { return Math.max(m, w.ms); }, target() * H), y = function (ms) { return 44 - ms / top * 40; };
-    $("trend").innerHTML = '<div class="k">Last 12 weeks · dashed line ' + target() + 'h</div><svg viewBox="0 0 240 46">' +
-      cols.map(function (w, i) {
-        var dl = TCM.delta(w.days, daily, now);
-        return '<rect' + (w.start === ws0 ? ' class="now"' : "") + ' x="' + (i * 20 + 3) + '" y="' + y(w.ms).toFixed(1) + '" width="14" height="' + (44 - y(w.ms)).toFixed(1) + '"><title>' +
-          esc(shortDate(w.start) + " – " + shortDate(w.start + 6 * TCM.DAY) + " · " + TCM.fmt(w.ms) + (dl.n ? " · " + TCM.sfmt(dl.ms) + " vs target" : "")) + "</title></rect>";
-      }).join("") +
-      '<line class="target" x1="0" x2="240" y1="' + y(target() * H).toFixed(1) + '" y2="' + y(target() * H).toFixed(1) + '"/><line x1="0" x2="240" y1="44.5" y2="44.5"/></svg>';
+    function weekLabel(w) {
+      var dl = TCM.delta(w.days, daily, now);
+      return shortDate(w.start) + " – " + shortDate(w.start + 6 * TCM.DAY) + " · " + TCM.fmt(w.ms) + (dl.n ? " · " + TCM.sfmt(dl.ms) + " vs target" : "");
+    }
+    if (refreshHistory !== false) {
+      var selected = $("trendWeeks") ? $("trendWeeks").value : String(ws0);
+      $("trend").innerHTML = tile("Last " + past.length + " week" + (past.length === 1 ? "" : "s"), avg(pastMs, past.length) + "/wk", "avg " + avg(pastMs, pastDays) + "/day") +
+        '<div class="k">Last 12 weeks · dashed line ' + target() + 'h</div><svg role="group" aria-label="Weekly worked hours" viewBox="0 0 240 46">' +
+        cols.map(function (w, i) {
+          var label = weekLabel(w);
+          return '<g role="button" tabindex="0" data-week="' + w.start + '" aria-label="' + esc(label) + '" aria-pressed="' + (String(w.start) === selected) + '"><rect x="' + (i * 20) + '" y="0" width="20" height="46" style="fill:transparent"/><rect' + (w.start === ws0 ? ' class="now"' : "") + ' x="' + (i * 20 + 3) + '" y="' + y(w.ms).toFixed(1) + '" width="14" height="' + (44 - y(w.ms)).toFixed(1) + '"/></g>';
+        }).join("") +
+        '<line class="target" style="pointer-events:none" x1="0" x2="240" y1="' + y(target() * H).toFixed(1) + '" y2="' + y(target() * H).toFixed(1) + '"/><line style="pointer-events:none" x1="0" x2="240" y1="44.5" y2="44.5"/></svg>' +
+        '<label for="trendWeeks" class="small">Week details</label><select id="trendWeeks" class="trend-select">' + cols.map(function (w) {
+          return '<option value="' + w.start + '"' + (String(w.start) === selected ? ' selected' : '') + '>' + esc(weekLabel(w)) + '</option>';
+        }).join("") + '</select><p id="trendValue" class="small" aria-live="polite"></p>';
+      showTrend();
+    } else {
+      cols.forEach(function (w, i) {
+        var group = $("trend").querySelector('[data-week="' + w.start + '"]');
+        if (!group) return;
+        var rect = group.lastElementChild;
+        group.setAttribute("aria-label", weekLabel(w));
+        rect.setAttribute("y", y(w.ms).toFixed(1)); rect.setAttribute("height", (44 - y(w.ms)).toFixed(1));
+        $("trendWeeks").options[i].textContent = weekLabel(w);
+      });
+      $("trend").querySelector(".target").setAttribute("y1", y(target() * H).toFixed(1));
+      $("trend").querySelector(".target").setAttribute("y2", y(target() * H).toFixed(1));
+      showTrend();
+    }
 
     // --- dot on the app icon (and tab title) while clocked in. Installed app
     // only; iOS and Android draw it once notifications are allowed.
@@ -273,23 +367,47 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
     $("badge").hidden = !(navigator.setAppBadge && window.Notification && Notification.permission === "default");
 
     // --- history, one <details> per week; keep what the user opened
+    if (refreshHistory === false && $("todaySessions").dataset.day === today) {
+      days.forEach(function (d) {
+        if (d.key !== today) return;
+        var day = $("edit-" + d.key);
+        if (day) {
+          var fresh = document.createElement("div"); fresh.innerHTML = dayHtml(d, d.key === today);
+          var current = day.closest(".day");
+          current.querySelector(".daymeta").innerHTML = fresh.querySelector(".daymeta").innerHTML;
+          current.querySelector(".bar").innerHTML = fresh.querySelector(".bar").innerHTML;
+        }
+      });
+      weeks.forEach(function (w) {
+        var summary = $("history").querySelector('[data-w="' + w.start + '"] summary .s'), dl = TCM.delta(w.days, daily, now);
+        if (summary) summary.textContent = TCM.fmt(w.ms) + " · " + w.days.filter(function (d) { return d.ms > 0; }).length + "d" + (dl.n ? " · " + TCM.sfmt(dl.ms) : "");
+      });
+      foot(); return;
+    }
+    var editing = {};
+    document.querySelectorAll(".editor:not([hidden])").forEach(function (el) { editing[el.dataset.day] = true; });
     var opened = {};
     document.querySelectorAll("#history details[open]").forEach(function (d) { opened[d.dataset.w] = 1; });
-    var first = !Object.keys(opened).length;
-    $("history").innerHTML = weeks.map(function (w, i) {
+    var first = !$("history").dataset.ready;
+    $("history").dataset.ready = "true";
+    $("todaySessions").dataset.day = today;
+    $("todaySessions").innerHTML = todayD ? dayHtml(todayD, true) : '<p class="muted">No sessions yet today.</p>';
+    $("history").innerHTML = weeks.filter(function (w) { return w.days.some(function (d) { return d.key !== today; }); }).map(function (w, i) {
       var n = w.days.filter(function (d) { return d.ms > 0; }).length, dl = TCM.delta(w.days, daily, now);
       var isOpen = first ? i === 0 : opened[w.start];
       return '<details data-w="' + w.start + '"' + (isOpen ? " open" : "") + "><summary><span>" +
         esc(shortDate(w.start)) + " – " + esc(shortDate(w.start + 6 * TCM.DAY)) +
         '</span><span class="s">' + TCM.fmt(w.ms) + " · " + n + "d" + (dl.n ? " · " + TCM.sfmt(dl.ms) : "") + "</span></summary>" +
-        w.days.map(dayHtml).join("") + "</details>";
-    }).join("") || '<p class="muted">Nothing yet. Press the button.</p>';
+        w.days.filter(function (d) { return d.key !== today; }).map(function (d) { return dayHtml(d, false); }).join("") + "</details>";
+    }).join("") || '<p class="muted">Earlier days will appear here.</p>';
+    Object.keys(editing).forEach(function (day) { toggleEditor(day, true); });
+    if (focusId && document.getElementById(focusId)) document.getElementById(focusId).focus({ preventScroll: true });
     foot();
   }
-  function tile(k, v, s, attr) { return '<div class="tile"' + (attr || "") + '><div class="k">' + esc(k) + '</div><div class="v">' + esc(v) + '</div><div class="s">' + esc(s) + "</div></div>"; }
+  function tile(k, v, s, attr) { var tag = attr ? "button" : "div"; return '<' + tag + ' class="tile"' + (attr || "") + '><span class="k">' + esc(k) + '</span><span class="v">' + esc(v) + '</span><span class="s">' + esc(s) + "</span></" + tag + ">"; }
   // The typical lunch of that day, as epoch ms: [out, back in].
   function lunch(day) { return [at(day, TCM.LUNCH_OUT + ":00"), at(day, TCM.LUNCH_IN + ":00")]; }
-  function dayHtml(d) {
+  function dayHtml(d, isToday) {
     var l = lunch(d.key), now = Date.now();
     // ponytail: six hours straight with no break is nearly always a forgotten lunch.
     var noBreak = !d.breaks && d.ms > 6 * H;
@@ -302,21 +420,49 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
       var end = s.end != null ? s.end : s.stale ? w0 + 14 * H : now, a = pct(s.start), b = pct(end);
       return '<i' + (s.stale ? ' class="stale"' : s.open ? ' class="open"' : "") + ' style="left:' + a.toFixed(1) + '%;width:' + Math.max(0.5, b - a).toFixed(1) + '%"></i>';
     }).join("") + '<b style="left:' + pct(d.start + endMin() * 60000).toFixed(1) + '%"></b>';
-    return '<div class="day' + (d.stale ? " stale" : "") + '"><div class="dayhead"><b>' + esc(dateLabel(d.start)) + '</b><span class="muted">' +
-      TCM.fmt(d.ms) + (d.breaks ? " · break " + TCM.fmt(d.breaks) : noBreak ? ' · <span class="warn">no break?</span>' : "") +
-      (d.mark ? ' · <span class="mark">' + (d.mark === "half" ? "half day" : "day off") + "</span>" : "") + "</span></div>" +
-      '<div class="bar">' + bar + "</div>" +
+    return '<div class="day' + (d.stale ? " stale" : "") + '"><div class="dayhead"><b>' + (isToday ? "Sessions" : esc(dateLabel(d.start))) + '</b><button class="btn" id="edit-' + d.key + '" data-edit="' + d.key + '" aria-expanded="false" aria-controls="editor-' + d.key + '">Edit</button></div>' +
+      '<div class="daymeta"><span class="muted">' + TCM.fmt(d.ms) + (d.breaks ? " · break " + TCM.fmt(d.breaks) : noBreak ? ' · <span class="warn">no break?</span>' : "") +
+      (d.mark ? ' · <span class="mark">' + (d.mark === "half" ? "half day" : "day off") + '</span>' : "") + '</span></div><div class="bar" aria-hidden="true">' + bar + '</div>' +
       d.sessions.map(function (s) {
+        return '<div class="readsess"><span>' + (s.start == null ? "Missing start" : TCM.hhmm(s.start)) + '–' + (s.end == null ? (s.stale ? "Missing end" : "Now") : TCM.hhmm(s.end)) + '</span><span class="muted">' + (s.open && !s.stale ? "Running" : s.stale ? "Needs correction" : s.orphan ? "Missing clock-in" : TCM.fmt(s.ms)) + '</span></div>';
+      }).join("") +
+      '<div class="editor" id="editor-' + d.key + '" data-day="' + d.key + '" hidden><p class="editor-note">Times save automatically. Mark time off using “Add a day / mark time off” below.</p>' +
+      d.sessions.map(function (s, i) {
         var spansLunch = s.start != null && s.start < l[0] && (s.end == null ? now : s.end) > l[1];
-        return '<div class="sess">' + timeInput(d.key, "in", s.start) + " → " + timeInput(d.key, "out", s.end) +
-          '<span class="d">' + (s.open && !s.stale ? "running" : s.stale ? "⚠ open" : s.orphan ? "no clock-in" : TCM.fmt(s.ms)) + "</span>" +
-          (spansLunch ? '<button class="x" title="Split for lunch: out at ' + TCM.hhmm(l[0]) + ", back at " + TCM.hhmm(l[1]) + ', then fix the times" data-split="' + d.key + '">✂</button>' : "") +
-          '<button class="x" title="Delete session" data-del data-start="' + (s.start == null ? "" : s.start) + '" data-end="' + (s.end == null ? "" : s.end) + '">×</button></div>';
-      }).join("") + "</div>";
+        return '<div class="sess">' + timeInput(d.key, "in", s.start, i) + timeInput(d.key, "out", s.end, i) +
+          (spansLunch ? '<button class="x" data-split="' + d.key + '">Add lunch break</button>' : "") +
+          '<button class="x" aria-label="Delete session ' + (i + 1) + ' on ' + esc(dateLabel(d.start)) + '" data-del data-start="' + (s.start == null ? "" : s.start) + '" data-end="' + (s.end == null ? "" : s.end) + '">Delete</button></div>';
+      }).join("") + (d.sessions.length ? '<p class="editor-note">Add lunch break records 12:00–14:00; adjust the times afterward.</p>' : '<p class="editor-note">No punches on this marked day.</p>') + '</div></div>';
   }
-  function timeInput(day, k, t) {
-    return '<input type="time" data-day="' + day + '" data-k="' + k + '" data-t="' + (t == null ? "" : t) + '" value="' + (t == null ? "" : TCM.hhmm(t)) + '">';
+  function timeInput(day, k, t, i) {
+    return '<label>' + (k === "in" ? "Clock in" : "Clock out") + '<input id="time-' + day + '-' + i + '-' + k + '" type="time" data-day="' + day + '" data-k="' + k + '" data-t="' + (t == null ? "" : t) + '" value="' + (t == null ? "" : TCM.hhmm(t)) + '"></label>';
   }
+
+  function toggleEditor(day, open) {
+    var editor = $("editor-" + day), button = $("edit-" + day);
+    if (!editor || !button) return;
+    editor.hidden = !open;
+    button.setAttribute("aria-expanded", String(open));
+    button.textContent = open ? "Done" : "Edit";
+  }
+  document.querySelector("main").addEventListener("click", function (e) {
+    var button = e.target.closest("[data-edit]");
+    if (button) toggleEditor(button.dataset.edit, button.getAttribute("aria-expanded") !== "true");
+  });
+  function showTrend(value) {
+    var select = $("trendWeeks");
+    if (value != null) select.value = value;
+    if (select.selectedIndex < 0) select.selectedIndex = select.options.length - 1;
+    var text = select.options[select.selectedIndex].textContent;
+    if ($("trendValue").textContent !== text) $("trendValue").textContent = text;
+    $("trend").querySelectorAll("[data-week]").forEach(function (bar) { bar.setAttribute("aria-pressed", String(bar.dataset.week === select.value)); });
+  }
+  $("trend").addEventListener("change", function () { showTrend(); });
+  $("trend").addEventListener("click", function (e) { var bar = e.target.closest("[data-week]"); if (bar) showTrend(bar.dataset.week); });
+  $("trend").addEventListener("keydown", function (e) {
+    var bar = e.target.closest("[data-week]");
+    if (bar && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); showTrend(bar.dataset.week); }
+  });
 
   // --- actions
   // One press, undoable for a few seconds: a mis-tap or the four-event
@@ -330,7 +476,7 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
     $("toastText").textContent = added.length > 1 ? "Recorded a typical day, out at " + TCM.hhmm(last.t)
       : (last.k === "in" ? "Clocked in " : "Clocked out ") + TCM.hhmm(last.t);
     undo = added; $("toast").hidden = false;
-    clearTimeout(toastTimer); toastTimer = setTimeout(hideToast, 6000);
+    clearTimeout(toastTimer); toastTimer = setTimeout(hideToast, 10000);
   }
   function hideToast() { undo = null; $("toast").hidden = true; }
   $("punch").onclick = function () { punch(Date.now()); };
@@ -338,21 +484,21 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
     (undo || []).forEach(function (e) { var i = find(e.k, e.t); if (i >= 0) events.splice(i, 1); });
     hideToast(); save();
   };
-  $("history").addEventListener("change", function (e) {
+  document.querySelector("main").addEventListener("change", function (e) {
     var el = e.target;
-    if (el.type !== "time" || !el.value) return;
+    if (!el.dataset.day || el.type !== "time" || !el.value) return;
     var t = at(el.dataset.day, el.value), i = el.dataset.t === "" ? -1 : find(el.dataset.k, +el.dataset.t);
     if (i < 0) events.push({ k: el.dataset.k, t: t }); else events[i].t = t;
     save();
   });
-  $("history").addEventListener("click", function (e) {
+  document.querySelector("main").addEventListener("click", function (e) {
     var el = e.target.closest("[data-split]");
     if (!el) return;
     var l = lunch(el.dataset.split);
     events.push({ k: "out", t: l[0] }, { k: "in", t: l[1] });
     save();
   });
-  $("history").addEventListener("click", function (e) {
+  document.querySelector("main").addEventListener("click", function (e) {
     var el = e.target.closest("[data-del]");
     if (!el || !confirm("Delete this session?")) return;
     [["in", el.dataset.start], ["out", el.dataset.end]].forEach(function (p) {
@@ -379,6 +525,13 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
     if (!day) return;
     events.push({ k: "in", t: at(day, "09:00") }, { k: "out", t: at(day, "17:00") });
     save();
+    var button = $("edit-" + day);
+    if (button) {
+      var week = button.closest("details"); if (week) week.open = true;
+      toggleEditor(day, true);
+      button.scrollIntoView({ block: "center" });
+      button.focus({ preventScroll: true });
+    }
   };
   // Mark the chosen date; the same mark again removes it.
   function mark(kind) {
@@ -413,6 +566,7 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
     });
     download(["date,mark,first_in,last_out,break_h,worked_h,vs_target_h"].concat(rows).join("\n"), "text/csv", "csv");
   };
+  $("importPick").onclick = function () { $("import").click(); };
   $("import").onchange = function () {
     var f = this.files[0]; this.value = "";
     if (!f) return;
@@ -454,8 +608,8 @@ h2{font-size:1em;text-transform:uppercase;letter-spacing:.05em;color:var(--muted
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist();
 
   // Re-render the running counter, unless the user is mid-edit.
-  setInterval(function () { if (!document.activeElement || document.activeElement.tagName !== "INPUT") render(); }, 30000);
-  document.addEventListener("visibilitychange", function () { if (!document.hidden) render(); });
+  setInterval(function () { if (!document.activeElement || !/^(INPUT|SELECT)$/.test(document.activeElement.tagName)) render(false); }, 30000);
+  document.addEventListener("visibilitychange", function () { if (!document.hidden) render(false); });
   render();
 
   if ("serviceWorker" in navigator) {
